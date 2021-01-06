@@ -30,7 +30,10 @@ jobs:
 
       - uses: jiro4989/setup-nim-action@v1
 
-      - run: nimble build -Y
+      # once we have release builds we should swap these two lines
+      # so that our tests get better errors
+      - run: nimble build -d:danger -d:release --opt:speed -Y
+      # - run: nimble build -d:debug
 
       # - run: nimble test -Y
       

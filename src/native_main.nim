@@ -7,6 +7,7 @@
 # compare with
 # time printf '%c\0\0\0{"cmd": "run", "command": "echo $PATH"}' 39 | python ~/.local/share/tridactyl/native_main.py
 
+# Standard library
 import json
 import options
 import osproc
@@ -14,18 +15,26 @@ import streams
 import os
 import posix
 import strutils
-import struct # nimble install struct
-import tempfile # nimble install tempfile
+
+# Third party stuff
+import struct
+import tempfile
 
 const VERSION = "0.2.0"
 
 type 
     MessageRecv* = object
-        cmd*, version*, content*, error*, command*, `var`*, file*, dir*, to*, `from`*, prefix*: Option[string]
+        cmd*, version*, content*, error*, command*, `var`*, file*, dir*, to*, `from`*, prefix*, path*: Option[string]
+        force: Option[bool]
         code: Option[int]
 type 
     MessageResp* = object
-        cmd*, version*, content*, error*, command*: Option[string]
+        cmd*, version*, content*, error*, command*, sep*: Option[string]
+
+        # This should be a JArray but I can't work out how to specify that
+        files: Option[JsonNode]
+
+        isDir: Option[bool]
         code: Option[int]
         
 # Vastly simpler than the Python version
@@ -89,7 +98,18 @@ proc handleMessage(msg: MessageRecv): string =
             reply.version = some(VERSION)
 
         of "getconfig":
-            write(stderr, "TODO: NOT IMPLEMENTED\n")
+            try:
+                let maybePath = findUserConfigFile()
+                if not isSome(maybePath):
+                    reply.code = some(1)
+                else:
+                    var f: File
+                    discard open(f, maybePath.get())
+                    reply.content = some(readAll(f))
+                    reply.code = some(0)
+                    close(f)
+            except IOError:
+                reply.code = some(2)
 
         of "getconfigpath":
             reply.content = findUserConfigFile()
@@ -108,7 +128,7 @@ proc handleMessage(msg: MessageRecv): string =
             # we'd have to start up Python
             # with whatever stuff is usually used imported
 
-            # should probably deprecate it instead
+            # should probably defenestrate it instead
             write(stderr, "TODO: NOT IMPLEMENTED\n")
 
         of "read":
@@ -152,7 +172,18 @@ proc handleMessage(msg: MessageRecv): string =
                 reply.code = some(2)
 
         of "writerc":
-            write(stderr, "TODO: NOT IMPLEMENTED\n")
+            let path = expandTilde(msg.file.get())
+            if not fileExists(path) or msg.force.get(false):
+                try:
+                    var f: File
+                    discard open(f, path, fmWrite)
+                    write(f, msg.content.get())
+                    reply.code = some(0)
+                    close(f)
+                except IOError:
+                    reply.code = some(2)
+            else:
+                reply.code = some 1
 
         of "temp":
             try:
@@ -169,7 +200,17 @@ proc handleMessage(msg: MessageRecv): string =
             reply.content = some(getEnv(msg.`var`.get()))
 
         of "list_dir":
-            write(stderr, "TODO: NOT IMPLEMENTED\n")
+            var path = expandTilde(msg.path.get())
+            reply.isDir = some dirExists(path)
+            if not reply.isDir.get(false):
+                path = parentDir(path) # returns "." for parent of bare file
+            let files = newJArray()
+
+            # Surely there's a better way of doing this
+            for (kind, dir) in walkDir(path):
+                add(files, newJString(dir))
+
+            reply.files = some files
 
         of "win_firefox_restart":
             write(stderr, "TODO: NOT IMPLEMENTED\n")

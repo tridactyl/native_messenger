@@ -175,7 +175,11 @@ proc handleMessage(msg: MessageRecv): string =
             write(stderr, "TODO: NOT IMPLEMENTED\n")
 
         of "ppid":
-            reply.content = some($getppid())
+            when defined posix:
+                reply.content = some($getppid())
+            else:
+                reply.cmd = some("error")
+                reply.error = some("ppid is not available on this OS")
 
         else:
             reply.cmd = some("error")

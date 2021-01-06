@@ -37,5 +37,5 @@ jobs:
       - name: Archive production artifacts
         uses: actions/upload-artifact@v2
         with:
-          name: native_main
+          name: native_main-${{ runner.os }}
           path: native_main.py

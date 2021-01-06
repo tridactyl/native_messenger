@@ -1,6 +1,5 @@
 # Package
 
-version       = "0.2.0"
 author        = "Oliver Blanthorn"
 description   = "Native messenger for Tridactyl, a vim-like web-extension"
 license       = "BSD-2"

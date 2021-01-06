@@ -1,0 +1,40 @@
+name: compile
+
+on:
+  push:
+    branches:
+      - 'master'
+  pull_request:
+    branches:
+      - '*'
+
+jobs:
+  compile:
+    strategy:
+      matrix:
+        os: [ubuntu, windows, macos]
+        # Probably need different architectures too, e.g. M1 Macs?
+
+    runs-on: ${{ matrix.os }}-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Cache nimble
+        id: cache-nimble
+        uses: actions/cache@v1
+        with:
+          path: ~/.nimble
+          key: ${{ runner.os }}-nimble-${{ hashFiles('*.nimble') }}
+        if: runner.os != 'Windows'
+
+      - uses: jiro4989/setup-nim-action@v1
+
+      - run: nimble build
+
+      # - run: nimble test -Y
+      
+      - name: Archive production artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: native_main
+          path: native_main.py

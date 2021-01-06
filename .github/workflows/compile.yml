@@ -11,6 +11,7 @@ on:
 jobs:
   compile:
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu, windows, macos]
         # Probably need different architectures too, e.g. M1 Macs?

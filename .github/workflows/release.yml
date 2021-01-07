@@ -1,0 +1,57 @@
+name: release
+
+on:
+  push:
+    tags: "*"
+
+jobs:
+  make_release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: false
+    outputs:
+      release_url: ${{ steps.create_release.outputs.upload_url }}
+
+  compile:
+    needs: make_release
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu, windows, macos]
+        # Probably need different architectures too, e.g. M1 Macs?
+
+    runs-on: ${{ matrix.os }}-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Cache nimble
+        id: cache-nimble
+        uses: actions/cache@v1
+        with:
+          path: ~/.nimble
+          key: ${{ runner.os }}-nimble-${{ hashFiles('*.nimble') }}
+        if: runner.os != 'Windows'
+
+      - uses: jiro4989/setup-nim-action@v1
+
+      - run: nimble build -d:danger -d:release --opt:speed -Y
+
+      - name: Upload Release Asset
+        id: upload-release-asset 
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.make_release.create_release.outputs.release_url }}
+          asset_name: native_main-${{ runner.os }}
+          asset_path: native_main.py
+          asset_content_type: application/octet-stream

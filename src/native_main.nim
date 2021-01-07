@@ -208,9 +208,10 @@ proc handleMessage(msg: MessageRecv): string =
 
             # Surely there's a better way of doing this
             for (kind, dir) in walkDir(path):
-                add(files, newJString(dir))
+                add(files, newJString(lastPathPart(dir)))
 
             reply.files = some files
+            reply.sep = some $DirSep
 
         of "win_firefox_restart":
             write(stderr, "TODO: NOT IMPLEMENTED\n")

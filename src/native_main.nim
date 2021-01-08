@@ -115,9 +115,21 @@ proc handleMessage(msg: MessageRecv): string =
 
         of "run":
             # this seems to use /bin/sh rather than the user's shell
-            reply.content = some($ execProcess(msg.command.get(), options={poEvalCommand,poStdErrToStdOut}))
-            reply.code = some 0
-            # probably important to catch the exit code so we can `:cq` in Vim to cancel Ctrl-I
+            let process = startProcess(msg.command.get(), options={poEvalCommand,poStdErrToStdOut})
+            
+            # Nicked from https://github.com/nim-lang/Nim/blob/1d8b7aa07ca9989b80dd758d66c7f4ba7dc533f7/lib/pure/osproc.nim#L507
+            # Not 100% sure we can't just use readAll
+            let outp = outputStream(process)
+            var content = ""
+            var line = newStringOfCap(120)
+            while true:
+                if readLine(outp, line):
+                  content.string.add(line.string)
+                  content.string.add("\n")
+                elif not running(process): break
+            reply.content = some content
+            reply.code = some waitForExit(process)
+            close(process)
 
         of "eval":
             # do we actually want to implement this?

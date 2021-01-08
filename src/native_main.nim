@@ -115,7 +115,8 @@ proc handleMessage(msg: MessageRecv): string =
 
         of "run":
             # this seems to use /bin/sh rather than the user's shell
-            reply.content = some($ execProcess(msg.command.get(), options={poEvalCommand,poStdErrToStdOut}))
+            let (shell, switch) = (if defined(windows): ("cmd", "/c") else: (getEnv("SHELL", "/bin/sh"), "-c"))
+            reply.content = some($ execProcess(shell, args=[switch, msg.command.get()], options={poStdErrToStdOut}))
             reply.code = some 0
             # probably important to catch the exit code so we can `:cq` in Vim to cancel Ctrl-I
 

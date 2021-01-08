@@ -51,20 +51,16 @@ proc getMessage(strm: Stream): MessageRecv =
     try:
         var length: int32
         read(strm,length)
-        write(stderr, "Reading message length: " & $length & "\n")
         if length == 0:
-            write(stderr, "No further messages, quitting.\n")
             close(strm)
             quit(0)
 
         let message = readStr(strm, length)
-        write(stderr, "Got message: " & message & "\n")
         var raw_json = parseJson(message)
 
         return to(raw_json,MessageRecv)
 
     except IOError:
-        write(stderr, "IO error - no further messages, quitting.\n")
         close(strm)
         quit(0)
 
@@ -234,7 +230,6 @@ proc handleMessage(msg: MessageRecv): string =
 
 while true:
     let strm = newFileStream(stdin)
-    write(stderr, "Waiting for message\n")
     # discard handleMessage(getMessage(strm))
     let message = handleMessage(getMessage(strm))
 
@@ -242,14 +237,12 @@ while true:
     # let message = "{\"version\": \"0.2.0\"}" #$ %* handleMessage(getMessage()) # %* converts the object to JSON
 
 
-    write(stderr, "Sending reply: " & message & "\n")
 
     let l = pack("@I", message.len)
 
     write(stdout, l)
     write(stdout, message) # %* converts the object to JSON
     flushFile(stdout)
-    write(stderr, "Sent message!\n")
 
 # quit(0)
 

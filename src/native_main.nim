@@ -114,11 +114,11 @@ proc handleMessage(msg: MessageRecv): string =
                 reply.code = some(1)
 
         of "run":
-            reply.content = some $(if defined(windows):
-                execProcess("cmd", args=["/c", msg.command.get()], options={poStdErrToStdOut})
+            when defined(windows):
+                reply.content = some $execProcess("cmd", args=["/c", msg.command.get()], options={poStdErrToStdOut})
             else:
-                execProcess(msg.command.get(), options={poEvalCommand, poStdErrToStdOut})
-            )
+                reply.content = some $execProcess(msg.command.get(), options={poEvalCommand, poStdErrToStdOut})
+
             reply.code = some 0
             # probably important to catch the exit code so we can `:cq` in Vim to cancel Ctrl-I
 

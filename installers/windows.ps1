@@ -16,12 +16,18 @@ Param (
 )
 
 function Install-NativeMessenger {
+    # Pre-5.1 versions of Powershell might not have a TLS version that GitHub
+    # supports enabled by default.
+    [Net.ServicePointManager]::SecurityProtocol = `
+        [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+
     $MessengerVersion = (Invoke-WebRequest `
             "https://raw.githubusercontent.com/tridactyl/tridactyl/$Tag/native/current_native_version").`
         Content.Trim()
     Write-Output "Installing native messenger version $MessengerVersion in $InstallDirectory"
 
     Write-Output "Entering $InstallDirectory"
+    New-Item -ItemType Directory $InstallDirectory -Force > $null
     Push-Location $InstallDirectory
 
     Write-Output "Downloading native messenger"
@@ -81,7 +87,11 @@ function Uninstall-NativeMessenger {
     Push-Location $MessengerDirectory
 
     Write-Output "Deleting messenger, manifest, and installer"
-    Get-ChildItem "native_main.exe", "tridactyl.json", "installer.ps1" | Remove-Item
+    # We don't care about errors finding the files - that just means we don't
+    # have to remove them. We do care about errors deleting them, because that
+    # might mean manual intervention is necessary to completely remove the
+    # native messenger.
+    Get-ChildItem "native_main.exe", "tridactyl.json", "installer.ps1" -ErrorAction SilentlyContinue | Remove-Item
 
     Write-Output "Exiting $MessengerDirectory"
     Pop-Location

@@ -66,5 +66,5 @@ jobs:
         with:
           upload_url: ${{ steps.get_upload_url.outputs.data }}
           asset_name: native_main-${{ runner.os }}
-          asset_path: native_main.py
+          asset_path: native_main
           asset_content_type: application/octet-stream

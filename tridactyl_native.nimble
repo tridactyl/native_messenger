@@ -4,7 +4,7 @@ author        = "Oliver Blanthorn"
 description   = "Native messenger for Tridactyl, a vim-like web-extension"
 license       = "BSD-2"
 srcDir        = "src"
-bin           = @["native_main.py"]
+bin           = @["native_main"]
 
 # Dependencies
 

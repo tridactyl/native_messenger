@@ -41,4 +41,4 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: native_main-${{ runner.os }}
-          path: native_main.py
+          path: native_main

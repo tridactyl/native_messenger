@@ -58,13 +58,17 @@ and run ".\installer.ps1 -Uninstall".
 }
 
 function Uninstall-NativeMessenger {
-    $MessengerDirectory = Get-ItemPropertyValue `
-        -Path "HKCU:\SOFTWARE\Mozilla\NativeMessagingHosts\tridactyl" -Name "(default)" |
+    $MessengerDirectory = (Get-ItemProperty `
+            -Path "HKCU:\SOFTWARE\Mozilla\NativeMessagingHosts\tridactyl")."(default)" |
         Get-Item | Select-Object -ExpandProperty Directory
 
+    $yes = New-Object System.Management.Automation.Host.ChoiceDescription `
+        "&Yes", "Uninstall the native messenger."
+    $no = New-Object System.Management.Automation.Host.ChoiceDescription `
+        "&No", "Do nothing."
     if ($Host.UI.PromptForChoice("Uninstall native messenger", `
                 "Are you sure you want to uninstall the native messenger from $MessengerDirectory`?",
-            @("&Yes", "&No"), 1) -eq 1) {
+            @($yes, $no), 1) -eq 1) {
         Write-Output "Uninstallation cancelled"
         exit
     }

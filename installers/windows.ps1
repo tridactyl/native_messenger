@@ -12,7 +12,7 @@
 Param (
     [switch]$Uninstall = $false,
     [string]$InstallDirectory = "$env:USERPROFILE\.tridactyl",
-    [string]$Tag = "1.21.0"
+    [string]$Tag = "master"
 )
 
 function Install-NativeMessenger {

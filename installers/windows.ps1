@@ -6,13 +6,13 @@
     to "$env:USERPROFILE\.tridactyl".
 .Parameter Tag
     The Tridactyl version to which the corresponding version of the native
-    messenger should be installed. Tridactyl versions lower than 1.20.5 are not
+    messenger should be installed. Tridactyl versions lower than 1.21.0 are not
     supported.
 #>
 Param (
     [switch]$Uninstall = $false,
     [string]$InstallDirectory = "$env:USERPROFILE\.tridactyl",
-    [string]$Tag = "1.20.5"
+    [string]$Tag = "1.21.0"
 )
 
 function Install-NativeMessenger {
@@ -32,7 +32,7 @@ function Install-NativeMessenger {
     Write-Output "Downloading manifest"
     (Invoke-WebRequest `
             "https://raw.githubusercontent.com/tridactyl/native_messenger/$MessengerVersion/tridactyl.json").`
-        Content.Replace("REPLACE_ME_WITH_SED", "native_main.bat") |
+        Content.Replace("REPLACE_ME_WITH_SED", "native_main.exe") |
         Set-Content -Path "tridactyl.json"
 
     Write-Output "Registering native messenger"
@@ -43,10 +43,6 @@ function Install-NativeMessenger {
         -Name "(default)" -PropertyType String `
         -Value $((Get-Item "tridactyl.json").FullName) `
         -Force > $null
-
-    Write-Output "Creating launcher"
-    "@echo off`ncall .\native_main.exe %*" |
-        Set-Content -Path "native_main.bat"
 
     Copy-Item $PSCommandPath "installer.ps1"
 
@@ -71,7 +67,7 @@ function Uninstall-NativeMessenger {
             @("&Yes", "&No"), 1) -eq 1) {
         Write-Output "Uninstallation cancelled"
         exit
-    } 
+    }
 
     Write-Output "Unregistering messenger"
     Remove-Item -Path "HKCU:\SOFTWARE\Mozilla\NativeMessagingHosts\tridactyl" `
@@ -80,9 +76,8 @@ function Uninstall-NativeMessenger {
     Write-Output "Entering $MessengerDirectory"
     Push-Location $MessengerDirectory
 
-    Write-Output "Deleting messenger, manifest, launcher, and installer"
-    Get-ChildItem "native_main.exe", "tridactyl.json", "native_main.bat", `
-        "installer.ps1" | Remove-Item
+    Write-Output "Deleting messenger, manifest, and installer"
+    Get-ChildItem "native_main.exe", "tridactyl.json", "installer.ps1" | Remove-Item
 
     Write-Output "Exiting $MessengerDirectory"
     Pop-Location

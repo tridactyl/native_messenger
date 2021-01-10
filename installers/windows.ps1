@@ -1,21 +1,36 @@
 <#
 .Parameter Uninstall
     Whether to uninstall an existing native messenger installation.
-.Parameter InstallDirectory
-    The directory in which the native messenger should be installed. Defaults
-    to "$env:USERPROFILE\.tridactyl".
 .Parameter Tag
     The Tridactyl version to which the corresponding version of the native
     messenger should be installed. Tridactyl versions lower than 1.21.0 are not
     supported.
+.Parameter InstallDirectory
+    The directory in which the native messenger should be installed. Defaults
+    to "$env:USERPROFILE\.tridactyl". This parameter is not honoured when an
+    existing installation is found.
 #>
 Param (
     [switch]$Uninstall = $false,
-    [string]$InstallDirectory = "$env:USERPROFILE\.tridactyl",
-    [string]$Tag = "1.21.0"
+    [string]$Tag = "1.21.0",
+    [string]$InstallDirectory = "$env:USERPROFILE\.tridactyl"
 )
 
+function Get-ExistingManifest {
+    if (Test-Path "HKCU:\SOFTWARE\Mozilla\NativeMessagingHosts\tridactyl") {
+        $ManifestLocation = (Get-ItemProperty "HKCU:\SOFTWARE\Mozilla\NativeMessagingHosts\tridactyl")."(default)"
+        if ($ManifestLocation -and (Test-Path $ManifestLocation)) {
+            return Get-Item $ManifestLocation
+        }
+    }
+    return $null
+}
+
 function Install-NativeMessenger {
+if ($ExistingManifest = Get-ExistingManifest) {
+    $InstallDirectory = $ExistingManifest.Directory
+}
+
     # Pre-5.1 versions of Powershell might not have a TLS version that GitHub
     # supports enabled by default.
     [Net.ServicePointManager]::SecurityProtocol = `
@@ -64,16 +79,19 @@ and run ".\installer.ps1 -Uninstall".
 }
 
 function Uninstall-NativeMessenger {
-    $MessengerDirectory = (Get-ItemProperty `
-            -Path "HKCU:\SOFTWARE\Mozilla\NativeMessagingHosts\tridactyl")."(default)" |
-        Get-Item | Select-Object -ExpandProperty Directory
+    if (-not ($ExistingManifest = Get-ExistingManifest)) {
+        Write-Error "Native messenger not found, cannot uninstall!"
+        exit 1
+    } else {
+        $InstallDirectory = $ExistingManifest.Directory
+    }
 
     $yes = New-Object System.Management.Automation.Host.ChoiceDescription `
         "&Yes", "Uninstall the native messenger."
     $no = New-Object System.Management.Automation.Host.ChoiceDescription `
         "&No", "Do nothing."
     if ($Host.UI.PromptForChoice("Uninstall native messenger", `
-                "Are you sure you want to uninstall the native messenger from $MessengerDirectory`?",
+                "Are you sure you want to uninstall the native messenger from $InstallDirectory`?",
             @($yes, $no), 1) -eq 1) {
         Write-Output "Uninstallation cancelled"
         exit
@@ -83,8 +101,8 @@ function Uninstall-NativeMessenger {
     Remove-Item -Path "HKCU:\SOFTWARE\Mozilla\NativeMessagingHosts\tridactyl" `
         -Force -Recurse
 
-    Write-Output "Entering $MessengerDirectory"
-    Push-Location $MessengerDirectory
+    Write-Output "Entering $InstallDirectory"
+    Push-Location $InstallDirectory
 
     Write-Output "Deleting messenger, manifest, and installer"
     # We don't care about errors finding the files - that just means we don't
@@ -93,7 +111,7 @@ function Uninstall-NativeMessenger {
     # native messenger.
     Get-ChildItem "native_main.exe", "tridactyl.json", "installer.ps1" -ErrorAction SilentlyContinue | Remove-Item
 
-    Write-Output "Exiting $MessengerDirectory"
+    Write-Output "Exiting $InstallDirectory"
     Pop-Location
     Write-Output "Done"
 }

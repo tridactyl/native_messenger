@@ -38,11 +38,13 @@ run() {
             ;;
     esac
 
-    if [ -z "$1" ] ; then
+    if [ -n "$1" ] ; then
         native_version="$(curl -sS https://raw.githubusercontent.com/tridactyl/tridactyl/"$1"/native/current_native_version 2>/dev/null)"
+    else
+        native_version="$(curl -sS https://api.github.com/repos/tridactyl/native_messenger/releases/latest | grep -oP '"tag_name": "\K(.*)(?=")')"
     fi
     manifest_loc="https://raw.githubusercontent.com/tridactyl/native_messenger/${1:-master}/tridactyl.json"
-    native_loc="https://github.com/tridactyl/native_messenger/releases/download/${native_version:-latest}/native_main-$binary_suffix"
+    native_loc="https://github.com/tridactyl/native_messenger/releases/download/$native_version/native_main-$binary_suffix"
 
 
     mkdir -p "$manifest_home" "$XDG_DATA_HOME"

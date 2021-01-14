@@ -39,9 +39,9 @@ run() {
     esac
 
     if [ -n "$1" ] ; then
-        native_version="$(curl -sS https://raw.githubusercontent.com/tridactyl/tridactyl/"$1"/native/current_native_version 2>/dev/null)"
+        native_version="$(curl -sSL https://raw.githubusercontent.com/tridactyl/tridactyl/"$1"/native/current_native_version 2>/dev/null)"
     else
-        native_version="$(curl -sS https://api.github.com/repos/tridactyl/native_messenger/releases/latest | grep -oP '"tag_name": "\K(.*)(?=")')"
+        native_version="$(curl -sSL https://api.github.com/repos/tridactyl/native_messenger/releases/latest | grep -oP '"tag_name": "\K(.*)(?=")')"
     fi
     manifest_loc="https://raw.githubusercontent.com/tridactyl/native_messenger/${1:-master}/tridactyl.json"
     native_loc="https://github.com/tridactyl/native_messenger/releases/download/$native_version/native_main-$binary_suffix"
@@ -56,8 +56,8 @@ run() {
     echo "Installing script here: XDG_DATA_HOME: $XDG_DATA_HOME"
 
 
-    curl -sS --create-dirs -o "$manifest_file" "$manifest_loc"
-    curl -sS --create-dirs -o "$native_file" "$native_loc"
+    curl -sSL --create-dirs -o "$manifest_file" "$manifest_loc"
+    curl -sSL --create-dirs -o "$native_file" "$native_loc"
 
     if [ ! -f "$manifest_file" ] ; then
         echoerr "Failed to create '$manifest_file'. Please make sure that the directories exist and that you have the necessary permissions."

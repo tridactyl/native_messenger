@@ -1,6 +1,6 @@
 <h1 align="center">
 <br>
-<img src="assets/tridactyl_native.png" alt="Tridactyl Native Logo" width="200">
+<img src="assets/tridactyl_native.png" alt="Tridactyl Native Logo">
 <br>
 Tridactyl native messenger
 <br>

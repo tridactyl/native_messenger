@@ -1,3 +1,11 @@
+<h1 align="center">
+<br>
+<img src="assets/tridactyl_native.png" alt="Tridactyl Native Logo" width="200">
+<br>
+Tridactyl native messenger
+<br>
+</h1>
+
 # What does it do?
 
 This small application allows [Tridactyl](https://github.com/tridactyl/tridactyl) to communicate with your system, allowing Tridactyl to:

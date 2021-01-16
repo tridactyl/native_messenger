@@ -33,6 +33,11 @@ jobs:
       # once we have release builds we should swap these two lines
       # so that our tests get better errors
       - run: nimble build -d:danger -d:release --opt:speed -Y -o:native_main
+
+      # Dumb hack to make Windows compat easier
+      - run: |
+          mv native_main.exe native_main 2>/dev/null || true
+        shell: bash
       # - run: nimble build -d:debug
 
       # - run: nimble test -Y

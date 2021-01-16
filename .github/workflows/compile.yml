@@ -33,6 +33,12 @@ jobs:
       # once we have release builds we should swap these two lines
       # so that our tests get better errors
       - run: nimble build -d:danger -d:release --opt:speed -Y
+      - run: |
+          mv native_main.py native_main-x86.py
+          nimble build -d:danger -d:release --opt:speed -Y --cpu:arm64
+          mv native_main.py native_main-arm64.py
+          lipo -create -output native_main.py native_main-x86.py native_main-arm64.py
+        if: runner.os == 'macOS'
       # - run: nimble build -d:debug
 
       # - run: nimble test -Y

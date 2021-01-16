@@ -32,7 +32,7 @@ jobs:
 
       # once we have release builds we should swap these two lines
       # so that our tests get better errors
-      - run: nimble build -d:danger -d:release --opt:speed -Y
+      - run: nimble build -d:danger -d:release --opt:speed -Y -o:native_main
       # - run: nimble build -d:debug
 
       # - run: nimble test -Y

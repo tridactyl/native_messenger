@@ -56,7 +56,7 @@ jobs:
 
       - uses: jiro4989/setup-nim-action@v1
 
-      - run: nimble build -d:danger -d:release --opt:speed -Y
+      - run: nimble build -d:danger -d:release --opt:speed -Y -o:native_main
 
       - name: Upload Release Asset
         id: upload-release-asset 

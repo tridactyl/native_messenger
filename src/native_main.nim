@@ -104,9 +104,11 @@ proc handleMessage(msg: MessageRecv): string =
                 reply.code = some(1)
 
         of "run":
-            var command = msg.command.get()
             when defined(windows):
-                command = "cmd /c " & command
+                let command = "cmd /c " & msg.command.get()
+            else:
+                let command = msg.command.get()
+
             let process = startProcess(command, options={poEvalCommand, poStdErrToStdOut})
 
             # Nicked from https://github.com/nim-lang/Nim/blob/1d8b7aa07ca9989b80dd758d66c7f4ba7dc533f7/lib/pure/osproc.nim#L507

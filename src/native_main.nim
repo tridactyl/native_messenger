@@ -37,6 +37,36 @@ proc sanitiseFilename(fn: string): string =
 
     return replace(ans,"..",".")
 
+# Split command line in a list honouring quotes (and also insert "/c" in the
+# beginning). Only used under Windows when shelling out to cmd.exe.
+#
+# This is extremely simplistic and doesn't handle escaping quotes at all.
+proc buildCmdArgs(cmd: string): seq[string] =
+    var args: seq[string]
+    args.add("/c")
+    var arg: string
+    var inQuotes: bool = false
+    for c in cmd:
+        case c:
+            of ' ':
+                if inQuotes:
+                    arg.add(c)
+                else:
+                    if arg != "":
+                        args.add(arg)
+                        arg = ""
+
+            of '"':
+                inQuotes = not inQuotes
+
+            else:
+                arg.add(c)
+
+    if arg != "":
+        args.add(arg)
+
+    return args
+
 proc getMessage(strm: Stream): MessageRecv =
     try:
         var length: int32
@@ -105,7 +135,7 @@ proc handleMessage(msg: MessageRecv): string =
 
         of "run":
             when defined(windows):
-                let process = startProcess("cmd", args=["/c", msg.command.get()], options={poStdErrToStdOut})
+                let process = startProcess("cmd", args=buildCmdArgs(msg.command.get()), options={poStdErrToStdOut})
             else:
                 let process = startProcess(msg.command.get(), options={poEvalCommand, poStdErrToStdOut})
 

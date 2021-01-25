@@ -105,9 +105,11 @@ proc handleMessage(msg: MessageRecv): string =
 
         of "run":
             when defined(windows):
-                let process = startProcess("cmd", args=["/c", msg.command.get()], options={poStdErrToStdOut})
+                let command = "cmd /c " & msg.command.get()
             else:
-                let process = startProcess(msg.command.get(), options={poEvalCommand, poStdErrToStdOut})
+                let command = msg.command.get()
+
+            let process = startProcess(command, options={poEvalCommand, poStdErrToStdOut})
 
             # Nicked from https://github.com/nim-lang/Nim/blob/1d8b7aa07ca9989b80dd758d66c7f4ba7dc533f7/lib/pure/osproc.nim#L507
             # Not 100% sure we can't just use readAll

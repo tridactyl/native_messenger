@@ -30,15 +30,12 @@ jobs:
 
       - uses: jiro4989/setup-nim-action@v1
 
-      # once we have release builds we should swap these two lines
-      # so that our tests get better errors
-      - run: nimble build -d:danger -d:release --opt:speed -Y -o:native_main
+      - run: nimble build -d:debug -Y -o:native_main
 
       - run: |
           mv native_main.exe native_main
         shell: bash
         if: runner.os == 'Windows'
-      # - run: nimble build -d:debug
 
       # - run: nimble test -Y
       

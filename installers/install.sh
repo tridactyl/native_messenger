@@ -43,7 +43,7 @@ run() {
     else
         native_version="$(curl -sSL https://api.github.com/repos/tridactyl/native_messenger/releases/latest | grep "tag_name" | cut -d':' -f2- | sed 's|[^0-9\.]||g')"
     fi
-    manifest_loc="https://raw.githubusercontent.com/tridactyl/native_messenger/${1:-master}/tridactyl.json"
+    manifest_loc="https://raw.githubusercontent.com/tridactyl/native_messenger/$native_version/tridactyl.json"
     native_loc="https://github.com/tridactyl/native_messenger/releases/download/$native_version/native_main-$binary_suffix"
 
 

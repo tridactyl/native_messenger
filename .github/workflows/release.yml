@@ -58,10 +58,10 @@ jobs:
 
       - run: nimble build -d:danger -d:release --opt:speed -Y -o:native_main
 
-      # Dumb hack to make Windows compat easier
       - run: |
-          mv native_main.exe native_main 2>/dev/null || true
+          mv native_main.exe native_main
         shell: bash
+        if: runner.os == 'Windows'
 
       - name: Upload Release Asset
         id: upload-release-asset 

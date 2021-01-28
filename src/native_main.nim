@@ -134,13 +134,12 @@ proc handleMessage(msg: MessageRecv): string =
             write(stderr, "TODO: NOT IMPLEMENTED\n")
 
         of "read":
-            try:
-                var f: File
-                discard open(f, expandTilde(msg.file.get()))
+            var f: File
+            if open(f, expandTilde(msg.file.get())):
                 reply.content = some(readAll(f))
                 reply.code = some(0)
                 close(f)
-            except IOError:
+            else:
                 reply.content = none(string)
                 reply.code = some(2)
 

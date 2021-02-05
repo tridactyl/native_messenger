@@ -14,7 +14,7 @@ import tempfile
 when defined(windows):
     import restart_windows
 
-const VERSION = "0.2.0"
+const VERSION = "0.2.1"
 
 type 
     MessageRecv* = object
@@ -110,9 +110,11 @@ proc handleMessage(msg: MessageRecv): string =
 
         of "run":
             when defined(windows):
-                let process = startProcess("cmd", args=["/c", msg.command.get()], options={poStdErrToStdOut})
+                let command = "cmd /c " & msg.command.get()
             else:
-                let process = startProcess(msg.command.get(), options={poEvalCommand, poStdErrToStdOut})
+                let command = msg.command.get()
+
+            let process = startProcess(command, options={poEvalCommand, poStdErrToStdOut})
 
             # Nicked from https://github.com/nim-lang/Nim/blob/1d8b7aa07ca9989b80dd758d66c7f4ba7dc533f7/lib/pure/osproc.nim#L507
             # Not 100% sure we can't just use readAll
@@ -137,13 +139,12 @@ proc handleMessage(msg: MessageRecv): string =
             write(stderr, "TODO: NOT IMPLEMENTED\n")
 
         of "read":
-            try:
-                var f: File
-                discard open(f, expandTilde(msg.file.get()))
+            var f: File
+            if open(f, expandTilde(msg.file.get())):
                 reply.content = some(readAll(f))
                 reply.code = some(0)
                 close(f)
-            except IOError:
+            else:
                 reply.content = none(string)
                 reply.code = some(2)
 
@@ -156,15 +157,17 @@ proc handleMessage(msg: MessageRecv): string =
                 reply.code = some(2)
 
         of "move":
-            let dest = expandTilde(msg.to.get())
+            let
+                dest = expandTilde(msg.to.get())
+                src  = expandTilde(msg.`from`.get())
             if fileExists(dest):
-                reply.code = some 1
+                reply.code = some(1)
             else:
                 try:
-                    moveFile(dest,msg.`from`.get())
-                    reply.code = some 0
+                    moveFile(src, dest)
+                    reply.code = some(0)
                 except OSError:
-                    reply.code = some 2
+                    reply.code = some(2)
 
         of "write":
             try:

@@ -152,15 +152,17 @@ proc handleMessage(msg: MessageRecv): string =
                 reply.code = some(2)
 
         of "move":
-            let dest = expandTilde(msg.to.get())
+            let
+                dest = expandTilde(msg.to.get())
+                src  = expandTilde(msg.`from`.get())
             if fileExists(dest):
-                reply.code = some 1
+                reply.code = some(1)
             else:
                 try:
-                    moveFile(dest,msg.`from`.get())
-                    reply.code = some 0
+                    moveFile(src, dest)
+                    reply.code = some(0)
                 except OSError:
-                    reply.code = some 2
+                    reply.code = some(2)
 
         of "write":
             try:

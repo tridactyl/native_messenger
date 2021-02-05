@@ -26,11 +26,11 @@ proc createToolhelp32Snapshot(dwFlags: DWORD, th32ProcessID: DWORD): Handle
     {.stdcall, dynlib: "kernel32", importc: "CreateToolhelp32Snapshot".}
 
 # See https://docs.microsoft.com/en-us/windows/win32/api/tlhelp32/nf-tlhelp32-process32first
-proc process32First(hSnapshot: Handle, lppe: ptr[PROCESSENTRY32]): bool
+proc process32First(hSnapshot: Handle, lppe: var PROCESSENTRY32): bool
     {.stdcall, dynlib: "kernel32", importc: "Process32First".}
 
 # See https://docs.microsoft.com/en-us/windows/win32/api/tlhelp32/nf-tlhelp32-process32next
-proc process32Next(hSnapshot: Handle, lppe: ptr[PROCESSENTRY32]): bool
+proc process32Next(hSnapshot: Handle, lppe: var PROCESSENTRY32): bool
     {.stdcall, dynlib: "kernel32", importc: "Process32Next".}
 
 proc getppid(): DWORD =
@@ -41,18 +41,22 @@ proc getppid(): DWORD =
     var processEntry: PROCESSENTRY32
     processEntry.dwSize = sizeof(PROCESSENTRY32).DWORD
 
-    if process32First(handle, addr processEntry):
-        doWhile process32Next(handle, addr processEntry):
+    if process32First(handle, processEntry):
+        doWhile process32Next(handle, processEntry):
             if processEntry.th32ProcessID == pid:
                 discard closeHandle handle
                 return processEntry.th32ParentProcessID
 
-proc cloneMessenger() =
+## Invoke the native messenger again with special arguments and outside the
+## Job Firefox starts it in. This is necessary because Firefox kills every
+## process in the messenger's job when it itself exits, but to be able to
+## restart Firefox we need a process which survives that.
+proc cloneMessenger*(profiledir, browsername: string) =
     var startupInfo: STARTUPINFO
     var processInformation: PROCESS_INFORMATION
     discard createProcessW(
         nil.newWideCString,
-        quoteShellCommand([getAppFilename()]).newWideCString,
+        quoteShellCommand([getAppFilename(), "restart", profiledir, browsername]).newWideCString,
         nil,
         nil,
         false.WINBOOL,

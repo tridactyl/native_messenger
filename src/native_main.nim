@@ -10,11 +10,16 @@ import strutils
 import struct
 import tempfile
 
+# Platform-specific stuff
+when defined(windows):
+    import restart_windows
+
 const VERSION = "0.2.0"
 
 type 
     MessageRecv* = object
-        cmd*, version*, content*, error*, command*, `var`*, file*, dir*, to*, `from`*, prefix*, path*: Option[string]
+        cmd*, version*, content*, error*, command*, `var`*, file*, dir*, to*,
+            `from`*, prefix*, path*, profiledir*, browser*: Option[string]
         force: Option[bool]
         code: Option[int]
 type 
@@ -214,7 +219,20 @@ proc handleMessage(msg: MessageRecv): string =
             reply.sep = some $DirSep
 
         of "win_firefox_restart":
-            write(stderr, "TODO: NOT IMPLEMENTED\n")
+            when defined windows:
+                if not isSome(msg.profiledir) or not isSome(msg.browser):
+                    reply.cmd = some("error")
+                    reply.error = some("win_firefox_restart: profile or browser executable name not specified")
+                else:
+                    cloneMessenger(
+                        profiledir = msg.profiledir.get(),
+                        browsername = msg.browser.get()
+                        )
+                    reply.code = some(0)
+                    reply.content = some("Restarting...")
+            else:
+                reply.cmd = some("error")
+                reply.error = some("win_firefox_restart is only available on Windows")
 
         of "ppid":
             when defined posix:

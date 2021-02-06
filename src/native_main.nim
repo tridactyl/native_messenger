@@ -11,7 +11,7 @@ import parseopt
 import struct
 import tempfile
 
-const VERSION = "0.2.1"
+const VERSION = "0.2.3"
 var DEBUG = false
 
 type

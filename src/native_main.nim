@@ -194,14 +194,14 @@ proc handleMessage(msg: MessageRecv): string =
                     when defined(macosx):
                         debug_log(">> MacOS detected ...\n")
                         var removeAttrErr = 0
-                        let attrsToRemove = @[
-                            "com.apple.quarantine",
-                            "com.apple.metadata:kMDItemWhereFroms"
-                        ]
-                        for attr in attrsToRemove:
-                            removeAttrErr = removeMacOSFileAttribute(src, attr)
-                            if removeAttrErr != 0:
-                                break
+                        # let attrsToRemove = @[
+                        #     "com.apple.quarantine",
+                        #     "com.apple.metadata:kMDItemWhereFroms"
+                        # ]
+                        # for attr in attrsToRemove:
+                        #     removeAttrErr = removeMacOSFileAttribute(src, attr)
+                        #     if removeAttrErr != 0:
+                        #         break
 
                         if removeAttrErr == 0:
                             var mvErr = 0

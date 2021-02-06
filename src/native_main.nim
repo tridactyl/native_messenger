@@ -182,6 +182,8 @@ proc handleMessage(msg: MessageRecv): string =
                 reply.code = some(1)
             else:
                 try:
+                    # On OSX, we use POSIX `mv` to bypass restrictions introduced in
+                    # Big Sur on moving files downloaded from the internet
                     when defined(macosx):
                         let mvCmd = quoteShellCommand([
                                 "mv", "-f",
@@ -278,4 +280,3 @@ while true:
     write(stdout, l)
     write(stdout, message) # %* converts the object to JSON
     flushFile(stdout)
-

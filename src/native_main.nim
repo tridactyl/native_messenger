@@ -75,15 +75,17 @@ proc findUserConfigFile(): Option[string] =
 
     return config_path
 
-proc removeFileAttribute(file, attr: string): int =
+proc debug_log(msg: string) =
+    if DEBUG:
+        write(stderr, msg)
+
+proc removeMacOSFileAttribute(file, attr: string): int =
     var xattrErr = 0
     var xattrCmd = ""
 
-    if DEBUG:
-        xattrCmd = quoteShellCommand(["xattr", "-d", attr, file])
-        write(stderr, ">> xattrCmd == " & $xattrCmd & "\n")
-    else:
-        xattrCmd = quoteShellCommand(["xattr", "-d", attr, file])
+    debug_log(">> xattrCmd == " & $xattrCmd & "\n")
+
+    xattrCmd = quoteShellCommand(["xattr", "-d", attr, file])
 
     xattrErr = execCmd(xattrCmd)
     return xattrErr
@@ -102,7 +104,7 @@ proc parseCommandLineOptions() =
             of cmdArgument:
                 continue
     else:
-        write(stderr, ">> commandLineParams() is undefined on this system ...\n")
+        debug_log(">> commandLineParams() is undefined on this system ...\n")
 
 proc handleMessage(msg: MessageRecv): string =
 
@@ -182,7 +184,7 @@ proc handleMessage(msg: MessageRecv): string =
                 reply.code = some(2)
 
         of "move":
-            let src = expandTilde(msg.from.get())
+            let src = expandTilde(msg.`from`.get())
             let dst = expandTilde(msg.to.get())
 
             if fileExists(dst):
@@ -190,15 +192,14 @@ proc handleMessage(msg: MessageRecv): string =
             else:
                 try:
                     when defined(macosx):
-                        if DEBUG:
-                            write(stderr, ">> MacOS detected ...\n")
+                        debug_log(">> MacOS detected ...\n")
                         var removeAttrErr = 0
                         let attrsToRemove = @[
                             "com.apple.quarantine",
                             "com.apple.metadata:kMDItemWhereFroms"
                         ]
                         for attr in attrsToRemove:
-                            removeAttrErr = removeFileAttribute(src, attr)
+                            removeAttrErr = removeMacOSFileAttribute(src, attr)
                             if removeAttrErr != 0:
                                 break
 
@@ -207,14 +208,14 @@ proc handleMessage(msg: MessageRecv): string =
                             var mvCmd = ""
                             if DEBUG:
                                 mvCmd = quoteShellCommand(["mv", "-v", "-f", src, dst])
-                                write(stderr, ">> mvCmd == " & $mvCmd & "\n")
+                                debug_log(">> mvCmd == " & $mvCmd & "\n")
                             else:
                                 mvCmd = quoteShellCommand(["mv", "-f", src, dst])
 
                             # moveFile(src, dst)
                             mvErr = execCmd(mvCmd)
                             if DEBUG:
-                                write(stderr, ">> mvErr == " & $mvErr & "\n")
+                                debug_log(">> mvErr == " & $mvErr & "\n")
 
                             if mvErr == 0:
                                 reply.code = some(0)

@@ -1,9 +1,10 @@
-import json
-import options
-import osproc
-import streams
 import os
+import json
 import posix
+import osproc
+import options
+import streams
+import parseopt
 import strutils
 
 # Third party stuff
@@ -11,13 +12,14 @@ import struct
 import tempfile
 
 const VERSION = "0.2.1"
+var DEBUG = false
 
-type 
+type
     MessageRecv* = object
         cmd*, version*, content*, error*, command*, `var`*, file*, dir*, to*, `from`*, prefix*, path*: Option[string]
         force: Option[bool]
         code: Option[int]
-type 
+type
     MessageResp* = object
         cmd*, version*, content*, error*, command*, sep*: Option[string]
 
@@ -26,7 +28,7 @@ type
 
         isDir: Option[bool]
         code: Option[int]
-        
+
 # Vastly simpler than the Python version
 # Let's let users check if that matters : )
 proc sanitiseFilename(fn: string): string =
@@ -73,6 +75,34 @@ proc findUserConfigFile(): Option[string] =
 
     return config_path
 
+proc removeFileAttribute(file, attr: string): int =
+    var xattrErr = 0
+    var xattrCmd = ""
+
+    if DEBUG:
+        xattrCmd = quoteShellCommand(["xattr", "-d", attr, file])
+        write(stderr, ">> xattrCmd == " & $xattrCmd & "\n")
+    else:
+        xattrCmd = quoteShellCommand(["xattr", "-d", attr, file])
+
+    xattrErr = execCmd(xattrCmd)
+    return xattrErr
+
+proc parseCommandLineOptions() =
+    when declared(commandLineParams):
+        var p = initOptParser(commandLineParams())
+        while true:
+            p.next()
+            case p.kind
+            of cmdEnd:
+                break
+            of cmdShortOption, cmdLongOption:
+                if p.key == "debug" or p.key == "d":
+                    DEBUG = true
+            of cmdArgument:
+                continue
+    else:
+        write(stderr, ">> commandLineParams() is undefined on this system ...\n")
 
 proc handleMessage(msg: MessageRecv): string =
 
@@ -152,15 +182,48 @@ proc handleMessage(msg: MessageRecv): string =
                 reply.code = some(2)
 
         of "move":
-            let
-                dest = expandTilde(msg.to.get())
-                src  = expandTilde(msg.`from`.get())
-            if fileExists(dest):
+            let src = expandTilde(msg.from.get())
+            let dst = expandTilde(msg.to.get())
+
+            if fileExists(dst):
                 reply.code = some(1)
             else:
                 try:
-                    moveFile(src, dest)
-                    reply.code = some(0)
+                    when defined(macosx):
+                        if DEBUG:
+                            write(stderr, ">> MacOS detected ...\n")
+                        var removeAttrErr = 0
+                        let attrsToRemove = @[
+                            "com.apple.quarantine",
+                            "com.apple.metadata:kMDItemWhereFroms"
+                        ]
+                        for attr in attrsToRemove:
+                            removeAttrErr = removeFileAttribute(src, attr)
+                            if removeAttrErr != 0:
+                                break
+
+                        if removeAttrErr == 0:
+                            var mvErr = 0
+                            var mvCmd = ""
+                            if DEBUG:
+                                mvCmd = quoteShellCommand(["mv", "-v", "-f", src, dst])
+                                write(stderr, ">> mvCmd == " & $mvCmd & "\n")
+                            else:
+                                mvCmd = quoteShellCommand(["mv", "-f", src, dst])
+
+                            # moveFile(src, dst)
+                            mvErr = execCmd(mvCmd)
+                            if DEBUG:
+                                write(stderr, ">> mvErr == " & $mvErr & "\n")
+
+                            if mvErr == 0:
+                                reply.code = some(0)
+                            else:
+                                raise newException(OSError, "\"" & mvCmd & "\" failed on MacOS ...")
+                    else:
+                        moveFile(src, dst)
+                        reply.code = some(0)
+
                 except OSError:
                     reply.code = some(2)
 
@@ -232,6 +295,8 @@ proc handleMessage(msg: MessageRecv): string =
             write(stderr, "Unhandled message: " & $ msg & "\n")
 
     return $ %* reply # $ converts to string, %* converts to JSON
+
+parseCommandLineOptions()
 
 while true:
     let strm = newFileStream(stdin)

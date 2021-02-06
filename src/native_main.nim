@@ -184,8 +184,8 @@ proc handleMessage(msg: MessageRecv): string =
                 try:
                     when defined(macosx):
                         let mvCmd = quoteShellCommand([
-                                "mv", "-v",
-                                (if DEBUG: "-f" else: ""),
+                                "mv", "-f",
+                                (if DEBUG: "-v" else: ""),
                                 src, dst
                             ])
                         debug_log(">> mvCmd == " & $mvCmd & "\n")

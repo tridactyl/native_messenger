@@ -79,17 +79,6 @@ proc debug_log(msg: string) =
     if DEBUG:
         write(stderr, msg)
 
-proc removeMacOSFileAttribute(file, attr: string): int =
-    var xattrErr = 0
-    var xattrCmd = ""
-
-    debug_log(">> xattrCmd == " & $xattrCmd & "\n")
-
-    xattrCmd = quoteShellCommand(["xattr", "-d", attr, file])
-
-    xattrErr = execCmd(xattrCmd)
-    return xattrErr
-
 proc parseCommandLineOptions() =
     when declared(commandLineParams):
         var p = initOptParser(commandLineParams())
@@ -107,7 +96,6 @@ proc parseCommandLineOptions() =
         debug_log(">> commandLineParams() is undefined on this system ...\n")
 
 proc handleMessage(msg: MessageRecv): string =
-
     let cmd = msg.cmd.get()
     var reply: MessageResp
     reply.cmd = some cmd
@@ -196,34 +184,22 @@ proc handleMessage(msg: MessageRecv): string =
                 try:
                     when defined(macosx):
                         debug_log(">> MacOS detected ...\n")
-                        var removeAttrErr = 0
-                        # let attrsToRemove = @[
-                        #     "com.apple.quarantine",
-                        #     "com.apple.metadata:kMDItemWhereFroms"
-                        # ]
-                        # for attr in attrsToRemove:
-                        #     removeAttrErr = removeMacOSFileAttribute(src, attr)
-                        #     if removeAttrErr != 0:
-                        #         break
 
-                        if removeAttrErr == 0:
-                            var mvErr = 0
-                            var mvCmd = ""
-                            if DEBUG:
-                                mvCmd = quoteShellCommand(["mv", "-v", "-f", src, dst])
-                                debug_log(">> mvCmd == " & $mvCmd & "\n")
-                            else:
-                                mvCmd = quoteShellCommand(["mv", "-f", src, dst])
+                        let mvCmd = quoteShellCommand([
+                                "mv", "-v",
+                                (if DEBUG: "-f" else: ""),
+                                src, dst
+                            ])
 
-                            # moveFile(src, dst)
-                            mvErr = execCmd(mvCmd)
-                            if DEBUG:
-                                debug_log(">> mvErr == " & $mvErr & "\n")
+                        debug_log(">> mvCmd == " & $mvCmd & "\n")
+                        let mvErr = execCmd(mvCmd)
 
-                            if mvErr == 0:
-                                reply.code = some(0)
-                            else:
-                                raise newException(OSError, "\"" & mvCmd & "\" failed on MacOS ...")
+                        debug_log(">> mvErr == " & $mvErr & "\n")
+
+                        if mvErr == 0:
+                            reply.code = some(0)
+                        else:
+                            raise newException(OSError, "\"" & mvCmd & "\" failed on MacOS ...")
                     else:
                         moveFile(src, dst)
                         reply.code = some(0)

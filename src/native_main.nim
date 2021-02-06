@@ -110,10 +110,12 @@ proc handleMessage(msg: MessageRecv): string =
 
     let cmd = msg.cmd.get()
     var reply: MessageResp
+    reply.cmd = some cmd
 
     case cmd:
         of "version":
             reply.version = some(VERSION)
+            reply.code = some 0
 
         of "getconfig":
             try:
@@ -141,6 +143,7 @@ proc handleMessage(msg: MessageRecv): string =
             else:
                 let command = msg.command.get()
 
+            reply.command = some command
             let process = startProcess(command, options={poEvalCommand, poStdErrToStdOut})
 
             # Nicked from https://github.com/nim-lang/Nim/blob/1d8b7aa07ca9989b80dd758d66c7f4ba7dc533f7/lib/pure/osproc.nim#L507

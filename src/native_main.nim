@@ -183,27 +183,19 @@ proc handleMessage(msg: MessageRecv): string =
             else:
                 try:
                     when defined(macosx):
-                        debug_log(">> MacOS detected ...\n")
-
                         let mvCmd = quoteShellCommand([
                                 "mv", "-v",
                                 (if DEBUG: "-f" else: ""),
                                 src, dst
                             ])
-
                         debug_log(">> mvCmd == " & $mvCmd & "\n")
-                        let mvErr = execCmd(mvCmd)
-
-                        debug_log(">> mvErr == " & $mvErr & "\n")
-
-                        if mvErr == 0:
-                            reply.code = some(0)
-                        else:
+                        reply.code = some execCmd(mvCmd)
+                        debug_log(">> mvStatus == " & $reply.code & "\n")
+                        if reply.code != 0:
                             raise newException(OSError, "\"" & mvCmd & "\" failed on MacOS ...")
                     else:
                         moveFile(src, dst)
                         reply.code = some(0)
-
                 except OSError:
                     reply.code = some(2)
 

@@ -193,7 +193,7 @@ proc handleMessage(msg: MessageRecv): string =
                         debug_log(">> mvCmd == " & $mvCmd & "\n")
                         reply.code = some execCmd(mvCmd)
                         debug_log(">> mvStatus == " & $reply.code & "\n")
-                        if reply.code != 0:
+                        if reply.code != some 0:
                             raise newException(OSError, "\"" & mvCmd & "\" failed on MacOS ...")
                     else:
                         moveFile(src, dst)

@@ -5,19 +5,21 @@ import streams
 import os
 import posix
 import strutils
+import parseopt
 
 # Third party stuff
 import struct
 import tempfile
 
-const VERSION = "0.2.2"
+const VERSION = "0.2.3"
+var DEBUG = false
 
-type 
+type
     MessageRecv* = object
         cmd*, version*, content*, error*, command*, `var`*, file*, dir*, to*, `from`*, prefix*, path*: Option[string]
         force: Option[bool]
         code: Option[int]
-type 
+type
     MessageResp* = object
         cmd*, version*, content*, error*, command*, sep*: Option[string]
 
@@ -26,7 +28,7 @@ type
 
         isDir: Option[bool]
         code: Option[int]
-        
+
 # Vastly simpler than the Python version
 # Let's let users check if that matters : )
 proc sanitiseFilename(fn: string): string =
@@ -73,9 +75,27 @@ proc findUserConfigFile(): Option[string] =
 
     return config_path
 
+proc debug_log(msg: string) =
+    if DEBUG:
+        write(stderr, msg)
+
+proc parseCommandLineOptions() =
+    when declared(commandLineParams):
+        var p = initOptParser(commandLineParams())
+        while true:
+            p.next()
+            case p.kind
+            of cmdEnd:
+                break
+            of cmdShortOption, cmdLongOption:
+                if p.key == "debug" or p.key == "d":
+                    DEBUG = true
+            of cmdArgument:
+                continue
+    else:
+        debug_log(">> commandLineParams() is undefined on this system ...\n")
 
 proc handleMessage(msg: MessageRecv): string =
-
     let cmd = msg.cmd.get()
     var reply: MessageResp
     reply.cmd = some cmd
@@ -155,15 +175,29 @@ proc handleMessage(msg: MessageRecv): string =
                 reply.code = some(2)
 
         of "move":
-            let
-                dest = expandTilde(msg.to.get())
-                src  = expandTilde(msg.`from`.get())
-            if fileExists(dest):
+            let src = expandTilde(msg.`from`.get())
+            let dst = expandTilde(msg.to.get())
+
+            if fileExists(dst):
                 reply.code = some(1)
             else:
                 try:
-                    moveFile(src, dest)
-                    reply.code = some(0)
+                    # On OSX, we use POSIX `mv` to bypass restrictions introduced in
+                    # Big Sur on moving files downloaded from the internet
+                    when defined(macosx):
+                        let mvCmd = quoteShellCommand([
+                                "mv", "-f",
+                                (if DEBUG: "-v" else: ""),
+                                src, dst
+                            ])
+                        debug_log(">> mvCmd == " & $mvCmd & "\n")
+                        reply.code = some execCmd(mvCmd)
+                        debug_log(">> mvStatus == " & $reply.code & "\n")
+                        if reply.code != 0:
+                            raise newException(OSError, "\"" & mvCmd & "\" failed on MacOS ...")
+                    else:
+                        moveFile(src, dst)
+                        reply.code = some(0)
                 except OSError:
                     reply.code = some(2)
 
@@ -236,6 +270,8 @@ proc handleMessage(msg: MessageRecv): string =
 
     return $ %* reply # $ converts to string, %* converts to JSON
 
+parseCommandLineOptions()
+
 while true:
     let strm = newFileStream(stdin)
     let message = handleMessage(getMessage(strm))
@@ -244,4 +280,3 @@ while true:
     write(stdout, l)
     write(stdout, message) # %* converts the object to JSON
     flushFile(stdout)
-

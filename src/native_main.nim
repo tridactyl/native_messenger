@@ -186,8 +186,9 @@ proc handleMessage(msg: MessageRecv): string =
                     # Big Sur on moving files downloaded from the internet
                     when defined(macosx):
                         let mvCmd = quoteShellCommand([
-                                "mv", "-f",
+                                "mv",
                                 (if DEBUG: "-v" else: ""),
+                                "-f",
                                 src, dst
                             ])
                         debug_log(">> mvCmd == " & $mvCmd & "\n")

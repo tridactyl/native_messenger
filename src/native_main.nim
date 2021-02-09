@@ -64,7 +64,7 @@ proc getMessage(strm: Stream): MessageRecv =
         let message = readStr(strm, length)
         var raw_json = parseJson(message)
 
-        writeLog("raw_json == " & $raw_json & "\n")
+        writeLog(">> raw_json == " & $raw_json & "\n")
 
         return to(raw_json,MessageRecv)
 
@@ -181,27 +181,8 @@ proc handleMessage(msg: MessageRecv): string =
             let cleanup = msg.cleanup.get(false)
 
             if overwrite == false:
-                # Check if 'dst' is a file
-                if fileExists(dst):
-                    writeLog(">> fileExists == " & $dst & "\n")
+                if fileExists(dst) or fileExists(joinPath(dst, extractFilename(src))):
                     reply.code = some(1)
-
-                # Check if 'dst' is a directory
-                elif dirExists(dst):
-                    if dst[dst.len - 1] == os.DirSep:
-                        # Remove trailing slash if 'dst' is a directory
-                        let regexStr = os.DirSep & "*$"
-                        dst = dst.replace(rex(regexStr), "")
-                        writeLog(">> dst after regex == " & $dst & "\n")
-
-                    # Prepare final 'dst' with correct path
-                    let srcSplitPath = splitPath(src)
-                    dst = dst & os.DirSep & srcSplitPath.tail
-                    writeLog(">> dst with srcSplitPath == " & $dst & "\n")
-
-                    if fileExists(dst):
-                        writeLog(">> dir+fileExists == " & $dst & "\n")
-                        reply.code = some(1)
 
             if overwrite == true:
                 try:
@@ -239,6 +220,7 @@ proc handleMessage(msg: MessageRecv): string =
                 when defined(macosx):
                     let rmCmd = quoteShellCommand([
                             "rm",
+                            "-f",
                             (when defined(DEBUG): "-v"),
                             src
                         ])

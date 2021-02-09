@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import posix
 import osproc
@@ -6,6 +7,7 @@ import options
 import streams
 import parseopt
 import strutils
+import parseopt
 
 # Third party stuff
 import struct
@@ -175,35 +177,56 @@ proc handleMessage(msg: MessageRecv): string =
                 reply.code = some(2)
 
         of "move":
-            let src = expandTilde(msg.`from`.get())
-            let dst = expandTilde(msg.to.get())
+            var src = expandTilde(msg.`from`.get())
+            debug_log(">> src == " & $src & "\n")
 
+            var dst = expandTilde(msg.to.get())
+            debug_log(">> dst == " & $dst & "\n")
+
+            var dstFileExists = false
+
+            # Assuming 'dst' is a file
             if fileExists(dst):
+                debug_log(">> fileExists == " & $dst & "\n")
                 reply.code = some(1)
-            else:
-                try:
-                    when defined(macosx):
-                        debug_log(">> MacOS detected ...\n")
+                dstFileExists = true
 
+            # Assuming 'dst' is a directory
+            elif dirExists(dst):
+                if dst[dst.len - 1] == os.DirSep:
+                    let regexStr = os.DirSep & "*$"
+                    dst = dst.replace(rex(regexStr), "")
+                    debug_log(">> dst after regex == " & $dst & "\n")
+
+                let srcSplitPath = splitPath(src)
+                dst = dst & os.DirSep & srcSplitPath.tail
+                debug_log(">> final dst == " & $dst & "\n")
+
+                if fileExists(dst):
+                    debug_log(">> dir+fileExists == " & $dst & "\n")
+                    reply.code = some(1)
+                    dstFileExists = true
+
+            if dstfileexists == false:
+                try:
+                    # On OSX, we use POSIX `mv` to bypass restrictions
+                    # introduced in Big Sur on moving files downloaded
+                    # from the internet
+                    when defined(macosx):
+                        debug_log(">> macos detected ..." & "\n")
                         let mvCmd = quoteShellCommand([
-                                "mv", "-v",
-                                (if DEBUG: "-f" else: ""),
+                                "mv",
+                                (when defined(DEBUG): "-v"),
                                 src, dst
                             ])
-
                         debug_log(">> mvCmd == " & $mvCmd & "\n")
-                        let mvErr = execCmd(mvCmd)
-
-                        debug_log(">> mvErr == " & $mvErr & "\n")
-
-                        if mvErr == 0:
-                            reply.code = some(0)
-                        else:
+                        reply.code = some execCmd(mvCmd)
+                        debug_log(">> mvStatus == " & $reply.code & "\n")
+                        if reply.code != some 0:
                             raise newException(OSError, "\"" & mvCmd & "\" failed on MacOS ...")
                     else:
                         moveFile(src, dst)
                         reply.code = some(0)
-
                 except OSError:
                     reply.code = some(2)
 
@@ -286,4 +309,3 @@ while true:
     write(stdout, l)
     write(stdout, message) # %* converts the object to JSON
     flushFile(stdout)
-

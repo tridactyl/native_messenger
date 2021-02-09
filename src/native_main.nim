@@ -180,11 +180,13 @@ proc handleMessage(msg: MessageRecv): string =
             let overwrite = msg.overwrite.get(false)
             let cleanup = msg.cleanup.get(false)
 
+            var dstFileExists = false
             if overwrite == false:
                 if fileExists(dst) or fileExists(joinPath(dst, extractFilename(src))):
                     reply.code = some(1)
+                    dstFileExists = true
 
-            if overwrite == true:
+            if dstFileExists == false or overwrite == true:
                 try:
                     # On OSX, we use POSIX `mv` to bypass restrictions
                     # introduced in Big Sur on moving files downloaded

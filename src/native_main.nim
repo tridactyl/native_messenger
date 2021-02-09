@@ -8,7 +8,6 @@ import options
 import streams
 import parseopt
 import strutils
-import parseopt
 
 # Third party stuff
 import struct
@@ -16,7 +15,6 @@ import tempfile
 
 const NATIVE_MAIN_LOG = "native_main.log"
 const VERSION = "0.2.4"
-var DEBUG = false
 
 type
     MessageRecv* = object
@@ -44,14 +42,6 @@ proc writeLog(msg: string) =
     let now = times.now()
     if os.fileExists(NATIVE_MAIN_LOG):
         writeFile(NATIVE_MAIN_LOG, $now & " :: " & msg)
-
-proc debugLog(msg: string) =
-    # As compared to writeLog(), this function is mostly for debugging
-    # "native_main" invocations on the console e.g. using
-    # "gen_native_message.py".
-    if DEBUG:
-        write(stderr, msg)
-        writeLog(msg)
 
 # Vastly simpler than the Python version
 # Let's let users check if that matters : )
@@ -100,22 +90,6 @@ proc findUserConfigFile(): Option[string] =
             break
 
     return config_path
-
-proc parseCommandLineOptions() =
-    when declared(commandLineParams):
-        var p = initOptParser(commandLineParams())
-        while true:
-            p.next()
-            case p.kind
-            of cmdEnd:
-                break
-            of cmdShortOption, cmdLongOption:
-                if p.key == "debug" or p.key == "d":
-                    DEBUG = true
-            of cmdArgument:
-                continue
-    else:
-        debugLog(">> commandLineParams() is undefined on this system ...\n")
 
 proc handleMessage(msg: MessageRecv): string =
     let cmd = msg.cmd.get()
@@ -198,10 +172,10 @@ proc handleMessage(msg: MessageRecv): string =
 
         of "move":
             var src = expandTilde(msg.`from`.get())
-            debugLog(">> src == " & $src & "\n")
+            writeLog(">> src == " & $src & "\n")
 
             var dst = expandTilde(msg.to.get())
-            debugLog(">> dst == " & $dst & "\n")
+            writeLog(">> dst == " & $dst & "\n")
 
             let overwrite = msg.overwrite.get(false)
             let cleanup = msg.cleanup.get(false)
@@ -209,7 +183,7 @@ proc handleMessage(msg: MessageRecv): string =
             if overwrite == false:
                 # Check if 'dst' is a file
                 if fileExists(dst):
-                    debugLog(">> fileExists == " & $dst & "\n")
+                    writeLog(">> fileExists == " & $dst & "\n")
                     reply.code = some(1)
 
                 # Check if 'dst' is a directory
@@ -218,15 +192,15 @@ proc handleMessage(msg: MessageRecv): string =
                         # Remove trailing slash if 'dst' is a directory
                         let regexStr = os.DirSep & "*$"
                         dst = dst.replace(rex(regexStr), "")
-                        debugLog(">> dst after regex == " & $dst & "\n")
+                        writeLog(">> dst after regex == " & $dst & "\n")
 
                     # Prepare final 'dst' with correct path
                     let srcSplitPath = splitPath(src)
                     dst = dst & os.DirSep & srcSplitPath.tail
-                    debugLog(">> dst with srcSplitPath == " & $dst & "\n")
+                    writeLog(">> dst with srcSplitPath == " & $dst & "\n")
 
                     if fileExists(dst):
-                        debugLog(">> dir+fileExists == " & $dst & "\n")
+                        writeLog(">> dir+fileExists == " & $dst & "\n")
                         reply.code = some(1)
 
             if overwrite == true:
@@ -235,7 +209,7 @@ proc handleMessage(msg: MessageRecv): string =
                     # introduced in Big Sur on moving files downloaded
                     # from the internet
                     when defined(macosx):
-                        debugLog(">> macos detected ..." & "\n")
+                        writeLog(">> macos detected ..." & "\n")
                         var mvCmd = quoteShellCommand([
                                 "mv",
                                 (when defined(DEBUG): "-v"),
@@ -249,9 +223,9 @@ proc handleMessage(msg: MessageRecv): string =
                                     src, dst
                                 ])
 
-                        debugLog(">> mvCmd == " & $mvCmd & "\n")
+                        writeLog(">> mvCmd == " & $mvCmd & "\n")
                         reply.code = some execCmd(mvCmd)
-                        debugLog(">> mvStatus == " & $reply.code & "\n")
+                        writeLog(">> mvStatus == " & $reply.code & "\n")
 
                         if reply.code != some 0:
                             raise newException(OSError, "\"" & mvCmd & "\" failed on MacOS ...")
@@ -268,12 +242,12 @@ proc handleMessage(msg: MessageRecv): string =
                             (when defined(DEBUG): "-v"),
                             src
                         ])
-                    debugLog(">> rmCmd == " & $rmCmd & "\n")
+                    writeLog(">> rmCmd == " & $rmCmd & "\n")
                     discard execCmd(rmCmd)
                 else:
                     discard removeFile(src)
 
-            debugLog(">> reply.code == " & $reply.code & "\n")
+            writeLog(">> reply.code == " & $reply.code & "\n")
 
         of "write":
             try:
@@ -344,12 +318,10 @@ proc handleMessage(msg: MessageRecv): string =
 
     return $ %* reply # $ converts to string, %* converts to JSON
 
-parseCommandLineOptions()
-
 while true:
     let strm = newFileStream(stdin)
     let message = handleMessage(getMessage(strm))
-    debugLog(">> message ==" & message & "\n")
+    writeLog(">> message ==" & message & "\n")
     let l = pack("@I", message.len)
 
     write(stdout, l)

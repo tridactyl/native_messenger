@@ -156,7 +156,7 @@ proc handleMessage(msg: MessageRecv): string =
             let src = expandTilde(msg.`from`.get())
             let dst = expandTilde(msg.to.get())
 
-            if fileExists(dst):
+            if fileExists(dst) or fileExists(joinPath(dst, extractFilename(src))):
                 reply.code = some(1)
             else:
                 try:

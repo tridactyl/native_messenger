@@ -37,7 +37,12 @@ if __name__ == "__main__":
         for i in range(1, len(sys.argv)):
             key = sys.argv[i].strip().split(separator)[0]
             val = sys.argv[i].strip().split(separator)[1]
-            msg[key] = val
+            if val.lower() == "true":
+                msg[key] = True
+            elif val.lower() == "false":
+                msg[key] = False
+            else:
+                msg[key] = val
 
     if len(sys.argv) == 1:
         usage()

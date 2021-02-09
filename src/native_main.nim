@@ -2,6 +2,7 @@ import os
 import re
 import json
 import posix
+import times
 import osproc
 import options
 import streams
@@ -13,7 +14,8 @@ import parseopt
 import struct
 import tempfile
 
-const VERSION = "0.2.3"
+const NATIVE_MAIN_LOG = "native_main.log"
+const VERSION = "0.2.4"
 var DEBUG = false
 
 type
@@ -21,6 +23,8 @@ type
         cmd*, version*, content*, error*, command*, `var`*, file*, dir*, to*, `from`*, prefix*, path*: Option[string]
         force: Option[bool]
         code: Option[int]
+        overwrite: Option[bool]
+        cleanup: Option[bool]
 type
     MessageResp* = object
         cmd*, version*, content*, error*, command*, sep*: Option[string]
@@ -30,6 +34,24 @@ type
 
         isDir: Option[bool]
         code: Option[int]
+
+proc writeLog(msg: string) =
+    # This function is mostly for debugging "native_main" invocations
+    # by the Firefox process. In order to enable logging, create/touch a
+    # file called "native_main.log" (as defined in NATIVE_MAIN_LOG
+    # variable above) in the same folder as the "native_main" binary. To
+    # stop logging, just delete this file.
+    let now = times.now()
+    if os.fileExists(NATIVE_MAIN_LOG):
+        writeFile(NATIVE_MAIN_LOG, $now & " :: " & msg)
+
+proc debugLog(msg: string) =
+    # As compared to writeLog(), this function is mostly for debugging
+    # "native_main" invocations on the console e.g. using
+    # "gen_native_message.py".
+    if DEBUG:
+        write(stderr, msg)
+        writeLog(msg)
 
 # Vastly simpler than the Python version
 # Let's let users check if that matters : )
@@ -51,6 +73,8 @@ proc getMessage(strm: Stream): MessageRecv =
 
         let message = readStr(strm, length)
         var raw_json = parseJson(message)
+
+        writeLog("raw_json == " & $raw_json & "\n")
 
         return to(raw_json,MessageRecv)
 
@@ -77,10 +101,6 @@ proc findUserConfigFile(): Option[string] =
 
     return config_path
 
-proc debug_log(msg: string) =
-    if DEBUG:
-        write(stderr, msg)
-
 proc parseCommandLineOptions() =
     when declared(commandLineParams):
         var p = initOptParser(commandLineParams())
@@ -95,7 +115,7 @@ proc parseCommandLineOptions() =
             of cmdArgument:
                 continue
     else:
-        debug_log(">> commandLineParams() is undefined on this system ...\n")
+        debugLog(">> commandLineParams() is undefined on this system ...\n")
 
 proc handleMessage(msg: MessageRecv): string =
     let cmd = msg.cmd.get()
@@ -178,50 +198,61 @@ proc handleMessage(msg: MessageRecv): string =
 
         of "move":
             var src = expandTilde(msg.`from`.get())
-            debug_log(">> src == " & $src & "\n")
+            debugLog(">> src == " & $src & "\n")
 
             var dst = expandTilde(msg.to.get())
-            debug_log(">> dst == " & $dst & "\n")
+            debugLog(">> dst == " & $dst & "\n")
 
-            var dstFileExists = false
+            let overwrite = msg.overwrite.get(false)
+            let cleanup = msg.cleanup.get(false)
 
-            # Assuming 'dst' is a file
-            if fileExists(dst):
-                debug_log(">> fileExists == " & $dst & "\n")
-                reply.code = some(1)
-                dstFileExists = true
-
-            # Assuming 'dst' is a directory
-            elif dirExists(dst):
-                if dst[dst.len - 1] == os.DirSep:
-                    let regexStr = os.DirSep & "*$"
-                    dst = dst.replace(rex(regexStr), "")
-                    debug_log(">> dst after regex == " & $dst & "\n")
-
-                let srcSplitPath = splitPath(src)
-                dst = dst & os.DirSep & srcSplitPath.tail
-                debug_log(">> final dst == " & $dst & "\n")
-
+            if overwrite == false:
+                # Check if 'dst' is a file
                 if fileExists(dst):
-                    debug_log(">> dir+fileExists == " & $dst & "\n")
+                    debugLog(">> fileExists == " & $dst & "\n")
                     reply.code = some(1)
-                    dstFileExists = true
 
-            if dstfileexists == false:
+                # Check if 'dst' is a directory
+                elif dirExists(dst):
+                    if dst[dst.len - 1] == os.DirSep:
+                        # Remove trailing slash if 'dst' is a directory
+                        let regexStr = os.DirSep & "*$"
+                        dst = dst.replace(rex(regexStr), "")
+                        debugLog(">> dst after regex == " & $dst & "\n")
+
+                    # Prepare final 'dst' with correct path
+                    let srcSplitPath = splitPath(src)
+                    dst = dst & os.DirSep & srcSplitPath.tail
+                    debugLog(">> dst with srcSplitPath == " & $dst & "\n")
+
+                    if fileExists(dst):
+                        debugLog(">> dir+fileExists == " & $dst & "\n")
+                        reply.code = some(1)
+
+            if overwrite == true:
                 try:
                     # On OSX, we use POSIX `mv` to bypass restrictions
                     # introduced in Big Sur on moving files downloaded
                     # from the internet
                     when defined(macosx):
-                        debug_log(">> macos detected ..." & "\n")
-                        let mvCmd = quoteShellCommand([
+                        debugLog(">> macos detected ..." & "\n")
+                        var mvCmd = quoteShellCommand([
                                 "mv",
                                 (when defined(DEBUG): "-v"),
                                 src, dst
                             ])
-                        debug_log(">> mvCmd == " & $mvCmd & "\n")
+                        if overwrite:
+                            mvCmd = quoteShellCommand([
+                                    "mv",
+                                    "-f",
+                                    (when defined(DEBUG): "-v"),
+                                    src, dst
+                                ])
+
+                        debugLog(">> mvCmd == " & $mvCmd & "\n")
                         reply.code = some execCmd(mvCmd)
-                        debug_log(">> mvStatus == " & $reply.code & "\n")
+                        debugLog(">> mvStatus == " & $reply.code & "\n")
+
                         if reply.code != some 0:
                             raise newException(OSError, "\"" & mvCmd & "\" failed on MacOS ...")
                     else:
@@ -229,6 +260,20 @@ proc handleMessage(msg: MessageRecv): string =
                         reply.code = some(0)
                 except OSError:
                     reply.code = some(2)
+
+            if cleanup:
+                when defined(macosx):
+                    let rmCmd = quoteShellCommand([
+                            "rm",
+                            (when defined(DEBUG): "-v"),
+                            src
+                        ])
+                    debugLog(">> rmCmd == " & $rmCmd & "\n")
+                    discard execCmd(rmCmd)
+                else:
+                    discard removeFile(src)
+
+            debugLog(">> reply.code == " & $reply.code & "\n")
 
         of "write":
             try:
@@ -304,6 +349,7 @@ parseCommandLineOptions()
 while true:
     let strm = newFileStream(stdin)
     let message = handleMessage(getMessage(strm))
+    debugLog(">> message ==" & message & "\n")
     let l = pack("@I", message.len)
 
     write(stdout, l)

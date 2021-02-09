@@ -5,14 +5,12 @@ import streams
 import os
 import posix
 import strutils
-import parseopt
 
 # Third party stuff
 import struct
 import tempfile
 
 const VERSION = "0.2.3"
-var DEBUG = false
 
 type
     MessageRecv* = object
@@ -74,26 +72,6 @@ proc findUserConfigFile(): Option[string] =
             break
 
     return config_path
-
-proc debug_log(msg: string) =
-    if DEBUG:
-        write(stderr, msg)
-
-proc parseCommandLineOptions() =
-    when declared(commandLineParams):
-        var p = initOptParser(commandLineParams())
-        while true:
-            p.next()
-            case p.kind
-            of cmdEnd:
-                break
-            of cmdShortOption, cmdLongOption:
-                if p.key == "debug" or p.key == "d":
-                    DEBUG = true
-            of cmdArgument:
-                continue
-    else:
-        debug_log(">> commandLineParams() is undefined on this system ...\n")
 
 proc handleMessage(msg: MessageRecv): string =
     let cmd = msg.cmd.get()
@@ -187,13 +165,9 @@ proc handleMessage(msg: MessageRecv): string =
                     when defined(macosx):
                         let mvCmd = quoteShellCommand([
                                 "mv",
-                                (if DEBUG: "-v" else: ""),
-                                "-f",
                                 src, dst
                             ])
-                        debug_log(">> mvCmd == " & $mvCmd & "\n")
                         reply.code = some execCmd(mvCmd)
-                        debug_log(">> mvStatus == " & $reply.code & "\n")
                         if reply.code != some 0:
                             raise newException(OSError, "\"" & mvCmd & "\" failed on MacOS ...")
                     else:
@@ -270,8 +244,6 @@ proc handleMessage(msg: MessageRecv): string =
             write(stderr, "Unhandled message: " & $ msg & "\n")
 
     return $ %* reply # $ converts to string, %* converts to JSON
-
-parseCommandLineOptions()
 
 while true:
     let strm = newFileStream(stdin)

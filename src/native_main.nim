@@ -19,7 +19,7 @@ const VERSION = "0.2.1"
 type 
     MessageRecv* = object
         cmd*, version*, content*, error*, command*, `var`*, file*, dir*, to*,
-            `from`*, prefix*, path*, profiledir*, browser*: Option[string]
+            `from`*, prefix*, path*, profiledir*, browsercmd*: Option[string]
         force: Option[bool]
         code: Option[int]
 type 
@@ -223,13 +223,13 @@ proc handleMessage(msg: MessageRecv): string =
 
         of "win_firefox_restart":
             when defined windows:
-                if not isSome(msg.profiledir) or not isSome(msg.browser):
+                if not isSome(msg.profiledir) or not isSome(msg.browsercmd):
                     reply.cmd = some("error")
                     reply.error = some("win_firefox_restart: profile or browser executable name not specified")
                 else:
                     cloneMessenger(
                         profiledir = msg.profiledir.get(),
-                        browsername = msg.browser.get()
+                        browsername = msg.browsercmd.get()
                         )
                     reply.code = some(0)
                     reply.content = some("Restarting...")

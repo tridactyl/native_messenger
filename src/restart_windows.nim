@@ -1,3 +1,5 @@
+## Procedures necessary for implementing :restart on Windows
+
 import winlean, os
 
 template doWhile(a: bool, b:untyped): untyped =
@@ -6,7 +8,7 @@ template doWhile(a: bool, b:untyped): untyped =
         b
 
 type
-    # See https://docs.microsoft.com/en-us/windows/win32/api/tlhelp32/ns-tlhelp32-processentry32
+    ## See https://docs.microsoft.com/en-us/windows/win32/api/tlhelp32/ns-tlhelp32-processentry32
     PROCESSENTRY32 = object
         dwSize: DWORD
         cntUsage: DWORD
@@ -21,15 +23,15 @@ type
         # Win32 API type names are otherwise used for consistency with the documentation.
         szExeFile: array[MAX_PATH, cchar]
 
-# See https://docs.microsoft.com/en-us/windows/win32/api/tlhelp32/nf-tlhelp32-createtoolhelp32snapshot
+## See https://docs.microsoft.com/en-us/windows/win32/api/tlhelp32/nf-tlhelp32-createtoolhelp32snapshot
 proc createToolhelp32Snapshot(dwFlags: DWORD, th32ProcessID: DWORD): Handle
     {.stdcall, dynlib: "kernel32", importc: "CreateToolhelp32Snapshot".}
 
-# See https://docs.microsoft.com/en-us/windows/win32/api/tlhelp32/nf-tlhelp32-process32first
+## See https://docs.microsoft.com/en-us/windows/win32/api/tlhelp32/nf-tlhelp32-process32first
 proc process32First(hSnapshot: Handle, lppe: var PROCESSENTRY32): bool
     {.stdcall, dynlib: "kernel32", importc: "Process32First".}
 
-# See https://docs.microsoft.com/en-us/windows/win32/api/tlhelp32/nf-tlhelp32-process32next
+## See https://docs.microsoft.com/en-us/windows/win32/api/tlhelp32/nf-tlhelp32-process32next
 proc process32Next(hSnapshot: Handle, lppe: var PROCESSENTRY32): bool
     {.stdcall, dynlib: "kernel32", importc: "Process32Next".}
 
@@ -37,7 +39,7 @@ proc getppid(): DWORD =
     let pid = getCurrentProcessId().DWORD
     # dwFlags=2 causes the snapshot to include all currently running processes
     # th32ProcessID=0 refers to the calling process
-    let handle = createToolhelp32Snapshot(2, 0)
+    let handle = createToolhelp32Snapshot(dwFlags = 2, th32ProcessID = 0)
     var processEntry: PROCESSENTRY32
     processEntry.dwSize = sizeof(PROCESSENTRY32).DWORD
 

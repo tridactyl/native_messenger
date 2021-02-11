@@ -251,12 +251,22 @@ proc handleMessage(msg: MessageRecv): string =
 
     return $ %* reply # $ converts to string, %* converts to JSON
 
-while true:
-    let strm = newFileStream(stdin)
-    let message = handleMessage(getMessage(strm))
-    let l = pack("@I", message.len)
+let params = commandLineParams()
+if len(params) > 0 and params[0] == "restart":
+    when defined windows:
+        # need to check this twice so we fail properly on wrong usage of
+        # "restart" argument
+        if len(params) == 4:
+            restartWindowsStep2(firefoxPid = params[1].parseInt(),
+                profiledir = params[2], browsername = params[3])
+            quit(QuitSuccess)
+    quit(QuitFailure)
+else:
+    while true:
+        let strm = newFileStream(stdin)
+        let message = handleMessage(getMessage(strm))
+        let l = pack("@I", message.len)
 
-    write(stdout, l)
-    write(stdout, message) # %* converts the object to JSON
-    flushFile(stdout)
-
+        write(stdout, l)
+        write(stdout, message) # %* converts the object to JSON
+        flushFile(stdout)

@@ -58,7 +58,8 @@ proc cloneMessenger*(profiledir, browsername: string) =
     var processInformation: PROCESS_INFORMATION
     discard createProcessW(
         nil.newWideCString,
-        quoteShellCommand([getAppFilename(), "restart", profiledir, browsername]).newWideCString,
+        quoteShellCommand([getAppFilename(), "restart", $ getppid(), profiledir,
+            browsername]).newWideCString,
         nil,
         nil,
         false.WINBOOL,
@@ -69,4 +70,17 @@ proc cloneMessenger*(profiledir, browsername: string) =
         nil,
         startupInfo,
         processInformation
+    )
+
+## The "main function" for the cloned messenger, responsible for the actual
+## restarting. Please rename this if you can think of a better name.
+proc restartWindowsStep2*(firefoxPid: int, profiledir, browsername: string) =
+    let firefoxHandle = openProcess(
+        dwDesiredAccess = SYNCHRONIZE.DWORD,
+        bInheritHandle = false.WINBOOL,
+        dwProcessId = firefoxPid.DWORD
+    )
+    discard waitForSingleObject(
+        hHandle = firefoxHandle,
+        dwMilliseconds = INFINITE
     )

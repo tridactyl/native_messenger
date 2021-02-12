@@ -49,7 +49,12 @@ proc getppidWindows*(pid = getCurrentProcessId().DWORD): DWORD =
                 discard closeHandle handle
                 return processEntry.th32ParentProcessID
 
-    raise newException(OSError, "Could not determine parent process id")
+    let osErrorCode = osLastError()
+    if osErrorCode.bool:
+        raise newOSError(osErrorCode)
+    else:
+        raise newException(CatchableError,
+            "getppidWindows failed: unknown error")
 
 ## Invoke the native messenger again with special arguments and outside the
 ## Job Firefox starts it in. This is necessary because Firefox kills every
@@ -78,10 +83,11 @@ proc createOrphanProcess*(commandLine: string) =
     ).bool
 
     if not success:
-        raise newException(
-            OSError,
-            "Could not create orphaned messenger process"
-        )
+        let osErrorCode = osLastError()
+        if osErrorCode.bool:
+            raise newOSError(osErrorCode)
+        else:
+            raise newException(CatchableError, "createOrphanProcess failed: unknown error")
 
 proc getOrphanMessengerCommand*(profiledir, browserName: string): string =
     let browserExePath = findExe(browserName, followSymlinks = false)

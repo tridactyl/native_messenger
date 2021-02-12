@@ -252,6 +252,9 @@ proc handleMessage(msg: MessageRecv): string =
                         createOrphanProcess(orphanCommandLine)
                         reply.code = some(0)
                         reply.content = some("Restarting...")
+                    except OSError as error:
+                        reply.cmd = some("error")
+                        reply.error = some("OSError " & $ error.errorCode & ": " & error.msg)
                     except:
                         reply.cmd = some("error")
                         reply.error = some(getCurrentExceptionMsg())

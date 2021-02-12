@@ -1,12 +1,10 @@
 import os
-import re
 import json
 import posix
 import times
 import osproc
 import options
 import streams
-import parseopt
 import strutils
 
 # Third party stuff
@@ -14,7 +12,7 @@ import struct
 import tempfile
 
 const NATIVE_MAIN_LOG = "native_main.log"
-const VERSION = "0.2.4"
+const VERSION = "0.3.0"
 
 type
     MessageRecv* = object
@@ -198,13 +196,14 @@ proc handleMessage(msg: MessageRecv): string =
                                 src,
                                 dst
                             ])
-
                         writeLog(">> mvCmd == " & $mvCmd & "\n")
-                        reply.code = some execCmd(mvCmd)
-                        writeLog(">> mvStatus == " & $reply.code & "\n")
+                        let mvStatus = execCmdEx(mvCmd, options={poEvalCommand, poStdErrToStdOut})
+                        writeLog(">> mvStatus == " & $mvStatus & "\n")
 
-                        if reply.code != some 0:
+                        if mvStatus.exitCode != 0:
                             raise newException(OSError, "\"" & mvCmd & "\" failed on MacOS ...")
+                        else:
+                            reply.code = some(0)
                     else:
                         moveFile(src, dst)
                         reply.code = some(0)
@@ -219,7 +218,7 @@ proc handleMessage(msg: MessageRecv): string =
                             src
                         ])
                     writeLog(">> rmCmd == " & $rmCmd & "\n")
-                    discard execCmd(rmCmd)
+                    discard execCmdEx(rmCmd, options={poEvalCommand, poStdErrToStdOut})
                 else:
                     discard removeFile(src)
 
@@ -303,5 +302,5 @@ while true:
     writeLog(">> message_length ==" & $message.len & "(" & $message_length & ")\n")
 
     write(stdout, message_length)
-    write(stdout, $message)
+    write(stdout, message)
     flushFile(stdout)

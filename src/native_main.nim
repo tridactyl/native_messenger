@@ -222,6 +222,23 @@ proc handleMessage(msg: MessageRecv): string =
             reply.sep = some $DirSep
 
         of "win_firefox_restart":
+            #[
+                Because of the way Firefox calls the native messenger, making
+                that same messenger restart Firefox is no easy feat: when
+                Firefox calls the messenger, it tells Windows to create a Job
+                for that process and all its children. When Firefox exits, it
+                tells Windows to terminate all processes belonging to that Job,
+                which would make it impossible for the messenger to re-invoke
+                Firefox, since it'd have been killed by that point.
+
+                We circumvent this by having the "parent" messenger start a
+                process that is specifically outside of any Job and will thus
+                be unaffected by Firefox exiting. This "orphan" is passed
+                the user's profile directory, the path to firefox.exe and
+                the process ID of its grandparent, Firefox. It then waits for
+                Firefox to exit and afterwards calls it using the binary path
+                and the profile directory it was given.
+            ]#
             when defined windows:
                 if not isSome(msg.profiledir) or not isSome(msg.browsercmd):
                     reply.cmd = some("error")

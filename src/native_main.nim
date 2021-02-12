@@ -231,7 +231,7 @@ proc handleMessage(msg: MessageRecv): string =
                         let orphanCommandLine = quoteShellCommand([
                             getAppFilename(),
                             "restart",
-                            $ getppid(),
+                            $ getppidWindows(),
                             msg.profiledir.get(),
                             msg.browsercmd.get(),
                         ])

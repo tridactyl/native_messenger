@@ -36,7 +36,7 @@ proc process32Next(hSnapshot: Handle, lppe: var PROCESSENTRY32): bool
     {.stdcall, dynlib: "kernel32", importc: "Process32Next".}
 
 ## Unlike POSIX getppid, can be passed an arbitrary PID.
-proc getppid*(pid = getCurrentProcessId().DWORD): DWORD =
+proc getppidWindows*(pid = getCurrentProcessId().DWORD): DWORD =
     # dwFlags=2 causes the snapshot to include all currently running processes
     # th32ProcessID=0 refers to the calling process
     let handle = createToolhelp32Snapshot(dwFlags = 2, th32ProcessID = 0)

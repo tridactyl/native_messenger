@@ -1,4 +1,4 @@
-## Procedures necessary for implementing :restart on Windows
+## Procedures necessary for restarting Firefox on Windows
 
 import winlean, os, osproc
 

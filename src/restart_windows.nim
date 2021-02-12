@@ -36,7 +36,7 @@ proc process32Next(hSnapshot: Handle, lppe: var PROCESSENTRY32): bool
     {.stdcall, dynlib: "kernel32", importc: "Process32Next".}
 
 ## Unlike POSIX getppid, can be passed an arbitrary PID.
-proc getppid(pid = getCurrentProcessId().DWORD): DWORD =
+proc getppid*(pid = getCurrentProcessId().DWORD): DWORD =
     # dwFlags=2 causes the snapshot to include all currently running processes
     # th32ProcessID=0 refers to the calling process
     let handle = createToolhelp32Snapshot(dwFlags = 2, th32ProcessID = 0)
@@ -53,23 +53,26 @@ proc getppid(pid = getCurrentProcessId().DWORD): DWORD =
 ## Job Firefox starts it in. This is necessary because Firefox kills every
 ## process in the messenger's job when it itself exits, but to be able to
 ## restart Firefox we need a process which survives that.
-proc cloneMessenger*(profiledir, browsername: string) =
-    var startupInfo: STARTUPINFO
-    var processInformation: PROCESS_INFORMATION
+proc createOrphanProcess*(commandLine: string) =
+    var
+        startupInfo: STARTUPINFO
+        processInformation: PROCESS_INFORMATION
     discard createProcessW(
-        nil.newWideCString,
-        quoteShellCommand([getAppFilename(), "restart", $ getppid(), profiledir,
-            browsername]).newWideCString,
-        nil,
-        nil,
-        false.WINBOOL,
-        # dwFlags = CREATE_BREAKAWAY_FROM_JOB | CREATE_NO_WINDOW
+        lpCommandLine = commandLine.newWideCString(),
+        # dwCreationFlags = CREATE_BREAKAWAY_FROM_JOB | CREATE_NO_WINDOW
         # See https://docs.microsoft.com/en-gb/windows/win32/procthread/process-creation-flags#CREATE_BREAKAWAY_FROM_JOB
-        0x01000000 or 0x08000000,
-        nil,
-        nil,
-        startupInfo,
-        processInformation
+        dwCreationFlags = 0x01000000 or 0x08000000,
+
+        # We don't care about the rest of the arguments, but we are required to
+        # specify them.
+        lpStartupInfo = startupInfo,
+        lpProcessInformation = processInformation,
+        lpApplicationName = nil.newWideCString(),
+        lpProcessAttributes = nil,
+        lpThreadAttributes = nil,
+        bInheritHandles = false.WINBOOL,
+        lpEnvironment = nil.newWideCString(),
+        lpCurrentDirectory = nil.newWideCString(),
     )
 
 ## The "main function" for the cloned messenger, responsible for the actual

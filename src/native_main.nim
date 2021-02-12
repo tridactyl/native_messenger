@@ -227,10 +227,14 @@ proc handleMessage(msg: MessageRecv): string =
                     reply.cmd = some("error")
                     reply.error = some("win_firefox_restart: profile or browser executable name not specified")
                 else:
-                    cloneMessenger(
-                        profiledir = msg.profiledir.get(),
-                        browsername = msg.browsercmd.get()
-                        )
+                    let orphanCommandLine = quoteShellCommand([
+                        getAppFilename(),
+                        "restart",
+                        $ getppid(),
+                        msg.profiledir.get(),
+                        msg.browsercmd.get(),
+                    ])
+                    createOrphanProcess(orphanCommandLine)
                     reply.code = some(0)
                     reply.content = some("Restarting...")
             else:

@@ -192,19 +192,12 @@ proc handleMessage(msg: MessageRecv): string =
                     # introduced in Big Sur on moving files downloaded
                     # from the internet
                     when defined(macosx):
-                        writeLog(">> macos detected ..." & "\n")
                         var mvCmd = quoteShellCommand([
                                 "mv",
-                                (when defined(DEBUG): "-v"),
-                                src, dst
+                                "-f",
+                                src,
+                                dst
                             ])
-                        if overwrite:
-                            mvCmd = quoteShellCommand([
-                                    "mv",
-                                    "-f",
-                                    (when defined(DEBUG): "-v"),
-                                    src, dst
-                                ])
 
                         writeLog(">> mvCmd == " & $mvCmd & "\n")
                         reply.code = some execCmd(mvCmd)
@@ -223,7 +216,6 @@ proc handleMessage(msg: MessageRecv): string =
                     let rmCmd = quoteShellCommand([
                             "rm",
                             "-f",
-                            (when defined(DEBUG): "-v"),
                             src
                         ])
                     writeLog(">> rmCmd == " & $rmCmd & "\n")
@@ -231,7 +223,7 @@ proc handleMessage(msg: MessageRecv): string =
                 else:
                     discard removeFile(src)
 
-            writeLog(">> reply.code == " & $reply.code & "\n")
+            writeLog(">> move() reply.code == " & $reply.code & "\n")
 
         of "write":
             try:
@@ -305,9 +297,11 @@ proc handleMessage(msg: MessageRecv): string =
 while true:
     let strm = newFileStream(stdin)
     let message = handleMessage(getMessage(strm))
-    writeLog(">> message ==" & message & "\n")
-    let l = pack("@I", message.len)
+    let message_length = pack("@I", message.len)
 
-    write(stdout, l)
-    write(stdout, message) # %* converts the object to JSON
+    writeLog(">> message ==" & message & "\n")
+    writeLog(">> message_length ==" & $message.len & "(" & $message_length & ")\n")
+
+    write(stdout, message_length)
+    write(stdout, $message)
     flushFile(stdout)

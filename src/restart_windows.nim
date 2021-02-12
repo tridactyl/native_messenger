@@ -1,6 +1,6 @@
 ## Procedures necessary for implementing :restart on Windows
 
-import winlean, os
+import winlean, os, osproc
 
 template doWhile(a: bool, b:untyped): untyped =
     b
@@ -83,6 +83,18 @@ proc createOrphanProcess*(commandLine: string) =
             "Could not create orphaned messenger process"
         )
 
+proc getOrphanMessengerCommand*(profiledir, browserName: string): string =
+    let browserExePath = findExe(browserName, followSymlinks = false)
+    if browserExePath == "":
+        raise newException(CatchableError, "Browser executable not found")
+    return quoteShellCommand([
+        getAppFilename(),
+        "restart",
+        $ getppidWindows(),
+        profiledir,
+        browserExePath,
+    ])
+
 proc waitForProcess*(pid: int) =
     let firefoxHandle = openProcess(
         dwDesiredAccess = SYNCHRONIZE.DWORD,
@@ -97,5 +109,12 @@ proc waitForProcess*(pid: int) =
 ## The main function for the orphaned native messenger.
 ## Waits for Firefox instance with PID ``firefoxPid`` to exit, then restarts it
 ## with EXE file name ``browsername`` and profile ``profiledir``.
-proc orphanMain*(firefoxPid: int, profiledir, browsername: string) =
+proc orphanMain*(firefoxPid: int, profiledir, browserExePath: string) =
     waitForProcess(firefoxPid)
+
+    let firefoxCommand = quoteShellCommand([
+        browserExePath,
+        "-profile",
+        profiledir,
+    ])
+    discard startProcess(firefoxCommand, options = {poEvalCommand})

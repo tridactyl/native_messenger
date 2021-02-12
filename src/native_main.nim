@@ -228,13 +228,10 @@ proc handleMessage(msg: MessageRecv): string =
                     reply.error = some("win_firefox_restart: profile or browser executable name not specified")
                 else:
                     try:
-                        let orphanCommandLine = quoteShellCommand([
-                            getAppFilename(),
-                            "restart",
-                            $ getppidWindows(),
+                        let orphanCommandLine = getOrphanMessengerCommand(
                             msg.profiledir.get(),
                             msg.browsercmd.get(),
-                        ])
+                        )
                         createOrphanProcess(orphanCommandLine)
                         reply.code = some(0)
                         reply.content = some("Restarting...")
@@ -266,7 +263,7 @@ when defined windows:
     # :restart on Windows.
     if len(params) == 4 and params[0] == "restart":
         orphanMain(firefoxPid = params[1].parseInt(),
-            profiledir = params[2], browsername = params[3])
+            profiledir = params[2], browserExePath = params[3])
         quit()
 
 while true:

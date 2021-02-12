@@ -11,6 +11,7 @@ import strutils
 import struct
 import tempfile
 
+var DEBUG = false
 const NATIVE_MAIN_LOG = "native_main.log"
 const VERSION = "0.3.0"
 
@@ -32,13 +33,8 @@ type
         code: Option[int]
 
 proc writeLog(msg: string) =
-    # This function is mostly for debugging "native_main" invocations
-    # by the Firefox process. In order to enable logging, create/touch a
-    # file called "native_main.log" (as defined in NATIVE_MAIN_LOG
-    # variable above) in the same folder as the "native_main" binary. To
-    # stop logging, just delete this file.
-    let now = times.now()
-    if os.fileExists(NATIVE_MAIN_LOG):
+    if DEBUG:
+        let now = times.now()
         writeFile(NATIVE_MAIN_LOG, $now & " :: " & msg)
 
 # Vastly simpler than the Python version
@@ -292,6 +288,9 @@ proc handleMessage(msg: MessageRecv): string =
             write(stderr, "Unhandled message: " & $ msg & "\n")
 
     return $ %* reply # $ converts to string, %* converts to JSON
+
+if os.getEnv("TRIDACTYL_DEBUG") == "1":
+    DEBUG = true
 
 while true:
     let strm = newFileStream(stdin)

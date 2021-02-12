@@ -49,6 +49,8 @@ proc getppid*(pid = getCurrentProcessId().DWORD): DWORD =
                 discard closeHandle handle
                 return processEntry.th32ParentProcessID
 
+    raise newException(OSError, "Could not determine parent process id")
+
 ## Invoke the native messenger again with special arguments and outside the
 ## Job Firefox starts it in. This is necessary because Firefox kills every
 ## process in the messenger's job when it itself exits, but to be able to
@@ -57,7 +59,7 @@ proc createOrphanProcess*(commandLine: string) =
     var
         startupInfo: STARTUPINFO
         processInformation: PROCESS_INFORMATION
-    discard createProcessW(
+    let success = createProcessW(
         lpCommandLine = commandLine.newWideCString(),
         # dwCreationFlags = CREATE_BREAKAWAY_FROM_JOB | CREATE_NO_WINDOW
         # See https://docs.microsoft.com/en-gb/windows/win32/procthread/process-creation-flags#CREATE_BREAKAWAY_FROM_JOB
@@ -73,7 +75,13 @@ proc createOrphanProcess*(commandLine: string) =
         bInheritHandles = false.WINBOOL,
         lpEnvironment = nil.newWideCString(),
         lpCurrentDirectory = nil.newWideCString(),
-    )
+    ).bool
+
+    if not success:
+        raise newException(
+            OSError,
+            "Could not create orphaned messenger process"
+        )
 
 ## The "main function" for the cloned messenger, responsible for the actual
 ## restarting. Please rename this if you can think of a better name.

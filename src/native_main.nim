@@ -265,7 +265,7 @@ when defined windows:
     # This should only invoked by the native messenger itself to perform
     # :restart on Windows.
     if len(params) == 4 and params[0] == "restart":
-        restartWindowsStep2(firefoxPid = params[1].parseInt(),
+        orphanMain(firefoxPid = params[1].parseInt(),
             profiledir = params[2], browsername = params[3])
         quit()
 

@@ -83,15 +83,19 @@ proc createOrphanProcess*(commandLine: string) =
             "Could not create orphaned messenger process"
         )
 
-## The "main function" for the cloned messenger, responsible for the actual
-## restarting. Please rename this if you can think of a better name.
-proc restartWindowsStep2*(firefoxPid: int, profiledir, browsername: string) =
+proc waitForProcess*(pid: int) =
     let firefoxHandle = openProcess(
         dwDesiredAccess = SYNCHRONIZE.DWORD,
         bInheritHandle = false.WINBOOL,
-        dwProcessId = firefoxPid.DWORD
+        dwProcessId = pid.DWORD
     )
     discard waitForSingleObject(
         hHandle = firefoxHandle,
         dwMilliseconds = INFINITE
     )
+
+## The main function for the orphaned native messenger.
+## Waits for Firefox instance with PID ``firefoxPid`` to exit, then restarts it
+## with EXE file name ``browsername`` and profile ``profiledir``.
+proc orphanMain*(firefoxPid: int, profiledir, browsername: string) =
+    waitForProcess(firefoxPid)

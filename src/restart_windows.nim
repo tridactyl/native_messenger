@@ -96,25 +96,25 @@ proc getOrphanMessengerCommand*(profiledir, browserName: string): string =
     ])
 
 proc waitForProcess*(pid: int) =
-    let firefoxHandle = openProcess(
+    let processHandle = openProcess(
         dwDesiredAccess = SYNCHRONIZE.DWORD,
         bInheritHandle = false.WINBOOL,
         dwProcessId = pid.DWORD
     )
     discard waitForSingleObject(
-        hHandle = firefoxHandle,
+        hHandle = processHandle,
         dwMilliseconds = INFINITE
     )
 
 ## The main function for the orphaned native messenger.
-## Waits for Firefox instance with PID ``firefoxPid`` to exit, then restarts it
-## with EXE file name ``browsername`` and profile ``profiledir``.
-proc orphanMain*(firefoxPid: int, profiledir, browserExePath: string) =
-    waitForProcess(firefoxPid)
+## Waits for Firefox instance with PID ``browserPid`` to exit, then restarts it
+## with binary ``browserExePath`` and profile ``profiledir``.
+proc orphanMain*(browserPid: int, profiledir, browserExePath: string) =
+    waitForProcess(browserPid)
 
-    let firefoxCommand = quoteShellCommand([
+    let browserCommand = quoteShellCommand([
         browserExePath,
         "-profile",
         profiledir,
     ])
-    discard startProcess(firefoxCommand, options = {poEvalCommand})
+    discard startProcess(browserCommand, options = {poEvalCommand})

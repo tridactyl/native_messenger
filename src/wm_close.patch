@@ -1,0 +1,45 @@
+diff --git a/src/restart_windows.nim b/src/restart_windows.nim
+index ca7673a..9de7684 100644
+--- a/src/restart_windows.nim
++++ b/src/restart_windows.nim
+@@ -23,6 +23,15 @@ type
+         # Win32 API type names are otherwise used for consistency with the documentation.
+         szExeFile: array[MAX_PATH, cchar]
+ 
++## See https://docs.microsoft.com/en-us/windows/win32/winprog/windows-data-types
++## These types would behave the same if they were directly defined in terms
++## of Nim's own types, or Nim types used in their place. They are defined
++## like this only for semantic reasons, as they are defined similarly in the
++## Windows headers.
++type
++    LPARAM = LONG
++    HWND = Handle
++
+ ## See https://docs.microsoft.com/en-us/windows/win32/api/tlhelp32/nf-tlhelp32-createtoolhelp32snapshot
+ proc createToolhelp32Snapshot(dwFlags: DWORD, th32ProcessID: DWORD): Handle
+     {.stdcall, dynlib: "kernel32", importc: "CreateToolhelp32Snapshot".}
+@@ -35,6 +44,24 @@ proc process32First(hSnapshot: Handle, lppe: var PROCESSENTRY32): bool
+ proc process32Next(hSnapshot: Handle, lppe: var PROCESSENTRY32): bool
+     {.stdcall, dynlib: "kernel32", importc: "Process32Next".}
+ 
++## See https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-enumwindows
++proc enumWindows(
++        callback: proc(hwnd: HWND, lParam: LPARAM): bool {.stdcall.},
++        lParam: LPARAM
++    ): bool
++    {.stdcall, dynlib: "user32", importc: "EnumWindows".}
++
++## See https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getwindowthreadprocessid
++proc getWindowThreadProcessId(hwnd: HWND, lpdwProcessId: var DWORD): DWORD
++    {.stdcall, dynlib: "user32", importc: "GetWindowThreadProcessId".}
++
++proc getWindow(hwnd: HWND, uCmd: cuint): HWND
++    {.stdcall, dynlib: "user32", importc: "GetWindow".}
++
++## See https://docs.microsoft.com/en-us/previous-versions/windows/desktop/legacy/ms633498(v=vs.85)
++proc enumWindowsCallback(hwnd: HWND, lParam: LPARAM): bool
++    {.stdcall.}
++
+ ## Unlike POSIX getppid, can be passed an arbitrary PID.
+ proc getppid(pid = getCurrentProcessId().DWORD): DWORD =
+     # dwFlags=2 causes the snapshot to include all currently running processes

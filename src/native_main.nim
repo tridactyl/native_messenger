@@ -12,7 +12,7 @@ import tempfile
 
 # Platform-specific stuff
 when defined(windows):
-    import restart_windows
+    import windows_restart
 
 const VERSION = "0.2.1"
 

@@ -280,7 +280,7 @@ when defined windows:
     let params = commandLineParams()
     # Usage: native_main.exe restart <Firefox PID> <profile dir> <browser exe name>
     # This should only invoked by the native messenger itself to perform
-    # :restart on Windows.
+    # :restart on Windows. See also windows_restart.getOrphanMessengerCommand.
     if len(params) == 4 and params[0] == "restart":
         orphanMain(browserPid = params[1].parseInt(),
             profiledir = params[2], browserExePath = params[3])

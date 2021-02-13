@@ -8,8 +8,8 @@ template doWhile(a: bool, b:untyped): untyped =
         b
 
 type
-    ## See https://docs.microsoft.com/en-us/windows/win32/api/tlhelp32/ns-tlhelp32-processentry32
     PROCESSENTRY32 = object
+        ## See https://docs.microsoft.com/en-us/windows/win32/api/tlhelp32/ns-tlhelp32-processentry32
         dwSize: DWORD
         cntUsage: DWORD
         th32ProcessID: DWORD
@@ -23,20 +23,21 @@ type
         # Win32 API type names are otherwise used for consistency with the documentation.
         szExeFile: array[MAX_PATH, cchar]
 
-## See https://docs.microsoft.com/en-us/windows/win32/api/tlhelp32/nf-tlhelp32-createtoolhelp32snapshot
 proc createToolhelp32Snapshot(dwFlags: DWORD, th32ProcessID: DWORD): Handle
     {.stdcall, dynlib: "kernel32", importc: "CreateToolhelp32Snapshot".}
+    ## See https://docs.microsoft.com/en-us/windows/win32/api/tlhelp32/nf-tlhelp32-createtoolhelp32snapshot
 
-## See https://docs.microsoft.com/en-us/windows/win32/api/tlhelp32/nf-tlhelp32-process32first
 proc process32First(hSnapshot: Handle, lppe: var PROCESSENTRY32): bool
     {.stdcall, dynlib: "kernel32", importc: "Process32First".}
+    ## See https://docs.microsoft.com/en-us/windows/win32/api/tlhelp32/nf-tlhelp32-process32first
 
-## See https://docs.microsoft.com/en-us/windows/win32/api/tlhelp32/nf-tlhelp32-process32next
 proc process32Next(hSnapshot: Handle, lppe: var PROCESSENTRY32): bool
     {.stdcall, dynlib: "kernel32", importc: "Process32Next".}
+    ## See https://docs.microsoft.com/en-us/windows/win32/api/tlhelp32/nf-tlhelp32-process32next
 
-## Unlike POSIX getppid, can be passed an arbitrary PID.
 proc getppidWindows(pid = getCurrentProcessId().DWORD): DWORD =
+    ## Unlike POSIX getppid, can be passed an arbitrary PID.
+
     # dwFlags=2 causes the snapshot to include all currently running processes
     # th32ProcessID=0 refers to the calling process
     let handle = createToolhelp32Snapshot(dwFlags = 2, th32ProcessID = 0)
@@ -56,11 +57,8 @@ proc getppidWindows(pid = getCurrentProcessId().DWORD): DWORD =
         raise newException(CatchableError,
             "getppidWindows failed: unknown error")
 
-## Invoke the native messenger again with special arguments and outside the
-## Job Firefox starts it in. This is necessary because Firefox kills every
-## process in the messenger's job when it itself exits, but to be able to
-## restart Firefox we need a process which survives that.
 proc createOrphanProcess*(commandLine: string) =
+    ## Invoke ``commandLine`` outside of any Job.
     var
         startupInfo: STARTUPINFO
         processInformation: PROCESS_INFORMATION
@@ -90,6 +88,9 @@ proc createOrphanProcess*(commandLine: string) =
             raise newException(CatchableError, "createOrphanProcess failed: unknown error")
 
 proc getOrphanMessengerCommand*(profiledir, browserName: string): string =
+    ## Build a command containing the information necessary for the special
+    ## native messenger to be able to restart Firefox. If this function is
+    ## changed, ``orphanMain`` must be changed accordingly.
     let browserExePath = findExe(browserName, followSymlinks = false)
     if browserExePath == "":
         raise newException(CatchableError, "Browser executable not found")
@@ -102,6 +103,7 @@ proc getOrphanMessengerCommand*(profiledir, browserName: string): string =
     ])
 
 proc waitForProcess(pid: int) =
+    ## Block until process with PID ``pid`` exits.
     let processHandle = openProcess(
         dwDesiredAccess = SYNCHRONIZE.DWORD,
         bInheritHandle = false.WINBOOL,
@@ -112,10 +114,10 @@ proc waitForProcess(pid: int) =
         dwMilliseconds = INFINITE
     )
 
-## The main function for the orphaned native messenger.
-## Waits for Firefox instance with PID ``browserPid`` to exit, then restarts it
-## with binary ``browserExePath`` and profile ``profiledir``.
 proc orphanMain*(browserPid: int, profiledir, browserExePath: string) =
+    ## The main function for the orphaned native messenger.
+    ## Waits for Firefox instance with PID ``browserPid`` to exit, then restarts
+    ## it with binary ``browserExePath`` and profile ``profiledir``.
     waitForProcess(browserPid)
 
     let browserCommand = quoteShellCommand([

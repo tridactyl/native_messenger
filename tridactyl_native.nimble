@@ -9,5 +9,4 @@ bin           = @["native_main"]
 # Dependencies
 
 requires "nim >= 1.4.2"
-requires "struct >= 0.2.0"
 requires "tempfile >= 0.1.0"

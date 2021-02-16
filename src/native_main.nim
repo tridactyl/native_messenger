@@ -15,9 +15,14 @@ var DEBUG = false
 const NATIVE_MAIN_LOG = "native_main.log"
 const VERSION = "0.3.0"
 
+# Platform-specific stuff
+when defined(windows):
+    import windows_restart
+
 type
     MessageRecv* = object
-        cmd*, version*, content*, error*, command*, `var`*, file*, dir*, to*, `from`*, prefix*, path*: Option[string]
+        cmd*, version*, content*, error*, command*, `var`*, file*, dir*, to*,
+            `from`*, prefix*, path*, profiledir*, browsercmd*: Option[string]
         force: Option[bool]
         code: Option[int]
         overwrite: Option[bool]
@@ -273,7 +278,45 @@ proc handleMessage(msg: MessageRecv): string =
             reply.sep = some $DirSep
 
         of "win_firefox_restart":
-            write(stderr, "TODO: NOT IMPLEMENTED\n")
+            #[
+                Because of the way Firefox calls the native messenger, making
+                that same messenger restart Firefox is no easy feat: when
+                Firefox calls the messenger, it tells Windows to create a Job
+                for that process and all its children. When Firefox exits, it
+                tells Windows to terminate all processes belonging to that Job,
+                which would make it impossible for the messenger to re-invoke
+                Firefox, since it'd have been killed by that point.
+
+                We circumvent this by having the "parent" messenger start a
+                process that is specifically outside of any Job and will thus
+                be unaffected by Firefox exiting. This "orphan" is passed
+                the user's profile directory, the path to firefox.exe and
+                the process ID of its grandparent, Firefox. It then waits for
+                Firefox to exit and afterwards calls it using the binary path
+                and the profile directory it was given.
+            ]#
+            when defined windows:
+                if not isSome(msg.profiledir) or not isSome(msg.browsercmd):
+                    reply.cmd = some("error")
+                    reply.error = some("win_firefox_restart: profile or browser executable name not specified")
+                else:
+                    try:
+                        let orphanCommandLine = getOrphanMessengerCommand(
+                            msg.profiledir.get(),
+                            msg.browsercmd.get(),
+                        )
+                        createOrphanProcess(orphanCommandLine)
+                        reply.code = some(0)
+                        reply.content = some("Restarting...")
+                    except OSError as error:
+                        reply.cmd = some("error")
+                        reply.error = some("OSError " & $ error.errorCode & ": " & error.msg)
+                    except:
+                        reply.cmd = some("error")
+                        reply.error = some(getCurrentExceptionMsg())
+            else:
+                reply.cmd = some("error")
+                reply.error = some("win_firefox_restart is only available on Windows")
 
         of "ppid":
             when defined posix:
@@ -291,6 +334,17 @@ proc handleMessage(msg: MessageRecv): string =
 
 if os.getEnv("TRIDACTYL_DEBUG") == "1":
     DEBUG = true
+
+when defined windows:
+    let params = commandLineParams()
+    # Usage: native_main.exe restart <Firefox PID> <profile dir>
+    # <browser exe name> This should only invoked by the native
+    # messenger itself to perform :restart on Windows. See also
+    # windows_restart.getOrphanMessengerCommand.
+    if len(params) == 4 and params[0] == "restart":
+        orphanMain(browserPid = params[1].parseInt(),
+            profiledir = params[2], browserExePath = params[3])
+        quit()
 
 while true:
     let strm = newFileStream(stdin)

@@ -2,7 +2,7 @@
 
 import winlean, os, osproc
 
-template doWhile(a: bool, b:untyped): untyped =
+template doWhile(a: bool, b: untyped): untyped =
     b
     while a:
         b
@@ -65,7 +65,7 @@ proc createOrphanProcess*(commandLine: string) =
     let success = createProcessW(
         lpCommandLine = commandLine.newWideCString(),
         # dwCreationFlags = CREATE_BREAKAWAY_FROM_JOB | CREATE_NO_WINDOW
-        # See https://docs.microsoft.com/en-gb/windows/win32/procthread/process-creation-flags#CREATE_BREAKAWAY_FROM_JOB
+            # See https://docs.microsoft.com/en-gb/windows/win32/procthread/process-creation-flags#CREATE_BREAKAWAY_FROM_JOB
         dwCreationFlags = 0x01000000 or 0x08000000,
 
         # We don't care about the rest of the arguments, but we are required to

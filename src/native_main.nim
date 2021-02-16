@@ -1,5 +1,4 @@
 import json
-import times
 import options
 import osproc
 import streams
@@ -14,8 +13,6 @@ when defined(windows):
     import windows_restart
 
 const VERSION = "0.3.0"
-var DEBUG = false
-const NATIVE_MAIN_LOG = "native_main.log"
 
 type
     MessageRecv* = object
@@ -54,11 +51,6 @@ func toJson(m: MessageResp): JsonNode =
                 result[name] = files
         else:
             {.error: "Unhandled MessageResp field: " & name.}
-
-proc writeLog(msg: string) =
-    if DEBUG:
-        let now = times.now()
-        writeFile(NATIVE_MAIN_LOG, $now & " :: " & msg)
 
 # Vastly simpler than the Python version
 # Let's let users check if that matters : )
@@ -173,10 +165,7 @@ proc handleMessage(msg: MessageRecv): MessageResp =
 
         of "move":
             let src = expandTilde(msg.`from`.get())
-            writeLog(">> src == " & $src & "\n")
-
             let dst = expandTilde(msg.to.get())
-            writeLog(">> dst == " & $dst & "\n")
 
             let overwrite = msg.overwrite.get(false)
             let cleanup = msg.cleanup.get(false)
@@ -216,13 +205,10 @@ proc handleMessage(msg: MessageRecv): MessageResp =
                             "-f",
                             src
                         ])
-                    writeLog(">> rmCmd == " & $rmCmd & "\n")
                     discard execCmdEx(rmCmd, options = {poEvalCommand,
                             poStdErrToStdOut})
                 else:
                     removeFile(src)
-
-            writeLog(">> move() reply.code == " & $result.code & "\n")
 
         of "write":
             try:
@@ -333,9 +319,6 @@ when defined windows:
         quit()
 
 let strm = newFileStream(stdin)
-
-if os.getEnv("TRIDACTYL_DEBUG") == "1":
-    DEBUG = true
 
 while true:
     let

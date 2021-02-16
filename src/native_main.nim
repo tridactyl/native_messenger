@@ -166,17 +166,10 @@ proc handleMessage(msg: MessageRecv): MessageResp =
         of "move":
             let src = expandTilde(msg.`from`.get())
             let dst = expandTilde(msg.to.get())
+            let canMove = msg.overwrite.get(false) or not(fileExists(dst) or
+                    fileExists(joinPath(dst, extractFilename(src))))
 
-            let overwrite = msg.overwrite.get(false)
-            let cleanup = msg.cleanup.get(false)
-
-            var dstFileExists = false
-            if overwrite == false:
-                if fileExists(dst) or fileExists(joinPath(dst, extractFilename(src))):
-                    result.code = some(1)
-                    dstFileExists = true
-
-            if dstFileExists == false or overwrite == true:
+            if canMove:
                 try:
                     # On OSX, we use POSIX `mv` to bypass restrictions
                     # introduced in Big Sur on moving files downloaded
@@ -197,8 +190,10 @@ proc handleMessage(msg: MessageRecv): MessageResp =
                         result.code = some(0)
                 except OSError:
                     result.code = some(2)
+            else:
+                result.code = some(1)
 
-            if cleanup:
+            if msg.cleanup.get(false):
                 when defined(macosx):
                     let rmCmd = quoteShellCommand([
                             "rm",

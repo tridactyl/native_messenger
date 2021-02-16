@@ -183,8 +183,6 @@ proc handleMessage(msg: MessageRecv): MessageResp =
                         result.code = some execCmd(mvCmd)
                         if result.code != some 0:
                             raise newException(OSError, "\"" & mvCmd & "\" failed on MacOS ...")
-                        else:
-                            result.code = some(0)
                     else:
                         moveFile(src, dst)
                         result.code = some(0)

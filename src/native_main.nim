@@ -1,4 +1,5 @@
 import json
+import times
 import options
 import osproc
 import streams
@@ -12,15 +13,18 @@ import tempfile
 when defined(windows):
     import windows_restart
 
-const VERSION = "0.2.5"
+const VERSION = "0.3.0"
+var DEBUG = false
+const NATIVE_MAIN_LOG = "native_main.log"
 
 type
     MessageRecv* = object
         cmd*, version*, content*, error*, command*, `var`*, file*, dir*, to*,
           `from`*, prefix*, path*, profiledir*, browsercmd*: Option[string]
-        force: Option[bool]
+        force, overwrite, cleanup: Option[bool]
         code: Option[int]
 
+type
     MessageResp* = object
         cmd*, version*, error*, sep*: string
         content*, command*: Option[string]
@@ -50,6 +54,11 @@ func toJson(m: MessageResp): JsonNode =
                 result[name] = files
         else:
             {.error: "Unhandled MessageResp field: " & name.}
+
+proc writeLog(msg: string) =
+    if DEBUG:
+        let now = times.now()
+        writeFile(NATIVE_MAIN_LOG, $now & " :: " & msg)
 
 # Vastly simpler than the Python version
 # Let's let users check if that matters : )
@@ -164,27 +173,56 @@ proc handleMessage(msg: MessageRecv): MessageResp =
 
         of "move":
             let src = expandTilde(msg.`from`.get())
-            let dst = expandTilde(msg.to.get())
+            writeLog(">> src == " & $src & "\n")
 
-            if fileExists(dst) or fileExists(joinPath(dst, extractFilename(src))):
-                result.code = some(1)
-            else:
+            let dst = expandTilde(msg.to.get())
+            writeLog(">> dst == " & $dst & "\n")
+
+            let overwrite = msg.overwrite.get(false)
+            let cleanup = msg.cleanup.get(false)
+
+            var dstFileExists = false
+            if overwrite == false:
+                if fileExists(dst) or fileExists(joinPath(dst, extractFilename(src))):
+                    result.code = some(1)
+                    dstFileExists = true
+
+            if dstFileExists == false or overwrite == true:
                 try:
-                    # On OSX, we use POSIX `mv` to bypass restrictions introduced in
-                    # Big Sur on moving files downloaded from the internet
+                    # On OSX, we use POSIX `mv` to bypass restrictions
+                    # introduced in Big Sur on moving files downloaded
+                    # from the internet
                     when defined(macosx):
                         let mvCmd = quoteShellCommand([
                             "mv",
+                            "-f",
                             src, dst
                             ])
                         result.code = some execCmd(mvCmd)
                         if result.code != some 0:
                             raise newException(OSError, "\"" & mvCmd & "\" failed on MacOS ...")
+                        else:
+                            result.code = some(0)
                     else:
                         moveFile(src, dst)
                         result.code = some(0)
                 except OSError:
                     result.code = some(2)
+
+            if cleanup:
+                when defined(macosx):
+                    let rmCmd = quoteShellCommand([
+                            "rm",
+                            "-f",
+                            src
+                        ])
+                    writeLog(">> rmCmd == " & $rmCmd & "\n")
+                    discard execCmdEx(rmCmd, options = {poEvalCommand,
+                            poStdErrToStdOut})
+                else:
+                    removeFile(src)
+
+            writeLog(">> move() reply.code == " & $result.code & "\n")
 
         of "write":
             try:
@@ -295,6 +333,9 @@ when defined windows:
         quit()
 
 let strm = newFileStream(stdin)
+
+if os.getEnv("TRIDACTYL_DEBUG") == "1":
+    DEBUG = true
 
 while true:
     let

@@ -27,9 +27,9 @@ function Get-ExistingManifest {
 }
 
 function Install-NativeMessenger {
-if ($ExistingManifest = Get-ExistingManifest) {
-    $InstallDirectory = $ExistingManifest.Directory
-}
+    if ($ExistingManifest = Get-ExistingManifest) {
+        $InstallDirectory = $ExistingManifest.Directory
+    }
 
     # Pre-5.1 versions of Powershell might not have a TLS version that GitHub
     # supports enabled by default.
@@ -46,9 +46,24 @@ if ($ExistingManifest = Get-ExistingManifest) {
     Push-Location $InstallDirectory
 
     Write-Output "Downloading native messenger"
-    Invoke-WebRequest `
-        "https://github.com/tridactyl/native_messenger/releases/download/$MessengerVersion/native_main-Windows" `
-        -OutFile "native_main.exe"
+    $MessengerRequest = Invoke-WebRequest `
+        "https://github.com/tridactyl/native_messenger/releases/download/$MessengerVersion/native_main-Windows"
+    for ($i = 0; $i -le 4; $i++) {
+        try {
+            $MessengerRequest.Content | Set-Content -Path "native_main.exe"
+            break
+        } catch {
+            if ($i -eq 4) {
+                Write-Error @"
+Native messenger binary could not be replaced. If it is currently running, stop
+the process and try again.
+"@
+                Pop-Location
+                exit 1
+            }
+            Start-Sleep 1
+        }
+    }
 
     Write-Output "Downloading manifest"
     (Invoke-WebRequest `

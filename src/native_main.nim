@@ -12,15 +12,16 @@ import tempfile
 when defined(windows):
     import windows_restart
 
-const VERSION = "0.2.5"
+const VERSION = "0.3.0"
 
 type
     MessageRecv* = object
         cmd*, version*, content*, error*, command*, `var`*, file*, dir*, to*,
           `from`*, prefix*, path*, profiledir*, browsercmd*: Option[string]
-        force: Option[bool]
+        force, overwrite, cleanup: Option[bool]
         code: Option[int]
 
+type
     MessageResp* = object
         cmd*, version*, error*, sep*: string
         content*, command*: Option[string]
@@ -165,16 +166,18 @@ proc handleMessage(msg: MessageRecv): MessageResp =
         of "move":
             let src = expandTilde(msg.`from`.get())
             let dst = expandTilde(msg.to.get())
+            let canMove = msg.overwrite.get(false) or not(fileExists(dst) or
+                    fileExists(joinPath(dst, extractFilename(src))))
 
-            if fileExists(dst) or fileExists(joinPath(dst, extractFilename(src))):
-                result.code = some(1)
-            else:
+            if canMove:
                 try:
-                    # On OSX, we use POSIX `mv` to bypass restrictions introduced in
-                    # Big Sur on moving files downloaded from the internet
+                    # On OSX, we use POSIX `mv` to bypass restrictions
+                    # introduced in Big Sur on moving files downloaded
+                    # from the internet
                     when defined(macosx):
                         let mvCmd = quoteShellCommand([
                             "mv",
+                            "-f",
                             src, dst
                             ])
                         result.code = some execCmd(mvCmd)
@@ -185,6 +188,20 @@ proc handleMessage(msg: MessageRecv): MessageResp =
                         result.code = some(0)
                 except OSError:
                     result.code = some(2)
+            else:
+                result.code = some(1)
+
+            if msg.cleanup.get(false):
+                when defined(macosx):
+                    let rmCmd = quoteShellCommand([
+                            "rm",
+                            "-f",
+                            src
+                        ])
+                    discard execCmdEx(rmCmd, options = {poEvalCommand,
+                            poStdErrToStdOut})
+                else:
+                    removeFile(src)
 
         of "write":
             try:

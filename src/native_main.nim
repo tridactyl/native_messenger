@@ -137,6 +137,16 @@ proc handleMessage(msg: MessageRecv): MessageResp =
             result.code = some waitForExit(process)
             close(process)
 
+        of "run_async":
+            when defined(windows):
+                let command = "cmd /c " & msg.command.get()
+                createOrphanProcess(command)
+            else:
+                let command = msg.command.get()
+                discard startProcess(command, options = {poEvalCommand})
+
+            result.command = some command
+
         of "eval":
             # do we actually want to implement this?
             # we'd have to start up Python

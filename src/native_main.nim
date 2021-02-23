@@ -12,7 +12,7 @@ import tempfile
 when defined(windows):
     import windows_restart
 
-const VERSION = "0.2.5"
+const VERSION = "0.3.1"
 
 type
     MessageRecv* = object

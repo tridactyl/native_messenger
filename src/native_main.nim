@@ -4,6 +4,7 @@ import osproc
 import streams
 import os
 import strutils
+import posix
 
 # Third party stuff
 import tempfile
@@ -294,7 +295,11 @@ proc handleMessage(msg: MessageRecv): MessageResp =
                 result.error = "win_firefox_restart is only available on Windows"
 
         of "ppid":
-            result.content = some($getCurrentProcessId())
+            when defined posix:
+                result.content = some($getppid())
+            else:
+                result.cmd = some("error")
+                result.error = some("ppid is not available on this OS")
 
         else:
             result.cmd = "error"

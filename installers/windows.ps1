@@ -48,9 +48,12 @@ function Install-NativeMessenger {
     Write-Output "Downloading native messenger"
     $MessengerRequest = Invoke-WebRequest `
         "https://github.com/tridactyl/native_messenger/releases/download/$MessengerVersion/native_main-Windows"
+    if (-not (Test-Path "native_main.exe")) {
+        New-Item "native_main.exe"
+    }
     for ($i = 0; $i -le 4; $i++) {
         try {
-            $MessengerRequest.Content | Set-Content -Path "native_main.exe"
+            [System.IO.File]::WriteAllBytes($(Resolve-Path "native_main.exe"), $MessengerRequest.Content)
             break
         } catch {
             if ($i -eq 4) {

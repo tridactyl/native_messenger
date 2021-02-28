@@ -13,7 +13,7 @@ import tempfile
 when defined(windows):
     import windows_restart
 
-const VERSION = "0.3.0"
+const VERSION = "0.3.1"
 
 type
     MessageRecv* = object
@@ -138,6 +138,16 @@ proc handleMessage(msg: MessageRecv): MessageResp =
             result.content = some content
             result.code = some waitForExit(process)
             close(process)
+
+        of "run_async":
+            when defined(windows):
+                let command = "cmd /c " & msg.command.get()
+                createOrphanProcess(command)
+            else:
+                let command = msg.command.get()
+                discard startProcess(command, options = {poEvalCommand})
+
+            result.command = some command
 
         of "eval":
             # do we actually want to implement this?

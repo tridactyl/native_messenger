@@ -39,13 +39,16 @@ jobs:
         if: runner.os == 'Windows'
 
 
-      - run: nimble build -d:debug -Y -o:native_main --verbose
-
-
       - run: |
           sudo apt-get install gcc-arm-linux-gnueabihf
-          nimble build -d:debug -Y --cpu:arm -o:native_main_arm
+          nimble build -d:debug -Y --cpu:arm
+          mv native_main native_main_armhf
+          file native_main_armhf
+        name: armhf build
         if: runner.os == 'Linux'
+
+      - run: nimble build -d:debug -Y --verbose
+
 
       - run: |
           mv native_main.exe native_main
@@ -64,5 +67,5 @@ jobs:
         uses: actions/upload-artifact@v2
         if: runner.os == 'Linux'
         with:
-          name: native_main_arm-${{ runner.os }}
-          path: native_main_arm
+          name: native_main_armhf-${{ runner.os }}
+          path: native_main_armhf

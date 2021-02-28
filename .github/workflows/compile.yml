@@ -30,6 +30,15 @@ jobs:
 
       - uses: jiro4989/setup-nim-action@v1
 
+        # Fix SSL error with choosenim
+      - run: |
+          curl -fO https://curl.se/ca/cacert.pem
+          install cacert.pem ~/.nimble/bin
+          ls ~/.nimble/bin
+        shell: bash
+        if: runner.os == 'Windows'
+
+
       - run: nimble build -d:debug -Y -o:native_main --verbose
 
       - run: |

@@ -91,6 +91,7 @@ jobs:
           asset_content_type: application/octet-stream
 
       - name: Upload Release Asset (ARM)
+        if: runner.os == 'Linux'
         id: upload-release-asset-arm
         uses: actions/upload-release-asset@v1
         env:

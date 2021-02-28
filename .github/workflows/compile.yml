@@ -30,7 +30,7 @@ jobs:
 
       - uses: jiro4989/setup-nim-action@v1
 
-      - run: nimble build -d:debug -Y -o:native_main
+      - run: nimble build -d:debug -Y -o:native_main --verbose
 
       - run: |
           mv native_main.exe native_main

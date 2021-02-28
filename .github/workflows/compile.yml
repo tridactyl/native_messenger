@@ -42,8 +42,8 @@ jobs:
       - run: |
           sudo apt-get install gcc-arm-linux-gnueabihf
           nimble build -d:debug -Y --cpu:arm
-          mv native_main native_main_armhf
-          file native_main_armhf
+          mv native_main native_main-armhf
+          file native_main-armhf
         name: armhf build
         if: runner.os == 'Linux'
 
@@ -67,5 +67,5 @@ jobs:
         uses: actions/upload-artifact@v2
         if: runner.os == 'Linux'
         with:
-          name: native_main_armhf-${{ runner.os }}
-          path: native_main_armhf
+          name: native_main-armhf-${{ runner.os }}
+          path: native_main-armhf

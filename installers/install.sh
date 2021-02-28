@@ -27,7 +27,7 @@ run() {
             manifest_home="$HOME/.mozilla/native-messaging-hosts/"
             binary_suffix="Linux"
             ;;
-        linux-gnueabihf*)
+        linux-gnueabihf)
             manifest_home="$HOME/.mozilla/native-messaging-hosts/"
             binary_suffix="armhf-Linux"
             ;;

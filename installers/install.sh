@@ -27,12 +27,17 @@ run() {
             manifest_home="$HOME/.mozilla/native-messaging-hosts/"
             binary_suffix="Linux"
             ;;
+        linux-gnueabihf)
+            manifest_home="$HOME/.mozilla/native-messaging-hosts/"
+            binary_suffix="armhf-Linux"
+            ;;
         darwin*)
             manifest_home="$HOME/Library/Application Support/Mozilla/NativeMessagingHosts/"
             binary_suffix="macOS"
             ;;
         *)
             # Fallback to default Linux location for unknown OSTYPE
+            # TODO: fall back to old Python messenger
             manifest_home="$HOME/.mozilla/native-messaging-hosts/"
             binary_suffix="Linux"
             ;;

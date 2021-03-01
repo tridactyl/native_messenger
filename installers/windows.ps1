@@ -49,7 +49,7 @@ function Install-NativeMessenger {
     $MessengerRequest = Invoke-WebRequest `
         "https://github.com/tridactyl/native_messenger/releases/download/$MessengerVersion/native_main-Windows"
     if (-not (Test-Path "native_main.exe")) {
-        New-Item "native_main.exe"
+        New-Item -ItemType File "native_main.exe"
     }
     for ($i = 0; $i -le 4; $i++) {
         try {

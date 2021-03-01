@@ -35,7 +35,7 @@ proc process32Next(hSnapshot: Handle, lppe: var PROCESSENTRY32): bool
     {.stdcall, dynlib: "kernel32", importc: "Process32Next".}
     ## See https://docs.microsoft.com/en-us/windows/win32/api/tlhelp32/nf-tlhelp32-process32next
 
-proc getppidWindows(pid = getCurrentProcessId().DWORD): DWORD =
+proc getppidWindows*(pid = getCurrentProcessId().DWORD): DWORD =
     ## Unlike POSIX getppid, can be passed an arbitrary PID.
 
     # dwFlags=2 causes the snapshot to include all currently running processes

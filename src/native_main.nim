@@ -307,8 +307,11 @@ proc handleMessage(msg: MessageRecv): MessageResp =
         of "ppid":
             when defined posix:
                 result.content = some($getppid())
-            else:
+            elif defined windows:
                 result.content = some($getppidWindows())
+            else: 
+                result.cmd = "error"
+                result.error = "ppid is not available on this OS"
 
         else:
             result.cmd = "error"

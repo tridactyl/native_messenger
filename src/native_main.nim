@@ -11,7 +11,7 @@ import tempfile
 
 # Platform-specific stuff
 when defined(windows):
-    import windows_restart
+    import windows_helpers
 
 const VERSION = "0.3.2"
 
@@ -308,8 +308,7 @@ proc handleMessage(msg: MessageRecv): MessageResp =
             when defined posix:
                 result.content = some($getppid())
             else:
-                result.cmd = "error"
-                result.error = "ppid is not available on this OS"
+                result.content = some($getppidWindows())
 
         else:
             result.cmd = "error"

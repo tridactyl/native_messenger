@@ -165,6 +165,7 @@ proc handleMessage(msg: MessageRecv): MessageResp =
                 close(f)
             else:
                 result.code = some(2)
+                result.content = some("")
 
         of "mkdir":
             try:

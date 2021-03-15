@@ -82,12 +82,22 @@ proc getMessage(strm: Stream): MessageRecv =
 
 
 proc findUserConfigFile(): string =
-    let candidateFiles = [
-      getConfigDir() / "tridactyl" / "tridactylrc",
-      getHomeDir() / ".tridactylrc",
-      getHomeDir() / "_config", "tridactyl" / "tridactylrc",
-      getHomeDir() / "_tridactylrc",
-    ]
+    let candidateFiles =
+        when not defined(windows):
+            [
+                getConfigDir() / "tridactyl" / "tridactylrc",
+                getHomeDir() / ".config" / "tridactyl" / "tridactylrc",
+                getHomeDir() / "_config" / "tridactyl" / "tridactylrc",
+                getHomeDir() / ".tridactylrc",
+                getHomeDir() / "_tridactylrc",
+            ]
+        else:
+            [
+                getHomeDir() / ".config" / "tridactyl" / "tridactylrc",
+                getHomeDir() / "_config" / "tridactyl" / "tridactylrc",
+                getHomeDir() / ".tridactylrc",
+                getHomeDir() / "_tridactylrc",
+            ]
 
     for path in candidateFiles:
         if fileExists(path):

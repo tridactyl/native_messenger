@@ -206,7 +206,10 @@ proc handleMessage(msg: MessageRecv): MessageResp =
                         if result.code != some 0:
                             raise newException(OSError, "\"" & mvCmd & "\" failed on MacOS ...")
                     else:
-                        moveFile(src, dst)
+                        if dirExists dst:
+                            moveFile(src, dst / extractFilename(src))
+                        else:
+                            moveFile(src, dst)
                         result.code = some(0)
                 except OSError:
                     result.code = some(2)

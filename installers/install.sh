@@ -11,6 +11,8 @@ sedEscape() {
 }
 
 # To install, curl -fsSl 'url to this script' | sh
+# Or run "./installers/install.sh local" in the repository of the
+# native messanger.
 
 run() {
     set -e
@@ -43,14 +45,18 @@ run() {
             ;;
     esac
 
-    if [ -n "$1" ] ; then
-        native_version="$(curl -sSL https://raw.githubusercontent.com/tridactyl/tridactyl/"$1"/native/current_native_version 2>/dev/null)"
+    if [ "$1" = "local" ] ; then
+        manifest_loc="file://"$(pwd)"/tridactyl.json"
+        native_loc="file://"$(pwd)"/native_main"
     else
-        native_version="$(curl -sSL https://api.github.com/repos/tridactyl/native_messenger/releases/latest | grep "tag_name" | cut -d':' -f2- | sed 's|[^0-9\.]||g')"
+        if [ -n "$1" ] ; then
+            native_version="$(curl -sSL https://raw.githubusercontent.com/tridactyl/tridactyl/"$1"/native/current_native_version 2>/dev/null)"
+        else
+            native_version="$(curl -sSL https://api.github.com/repos/tridactyl/native_messenger/releases/latest | grep "tag_name" | cut -d':' -f2- | sed 's|[^0-9\.]||g')"
+        fi
+        manifest_loc="https://raw.githubusercontent.com/tridactyl/native_messenger/$native_version/tridactyl.json"
+        native_loc="https://github.com/tridactyl/native_messenger/releases/download/$native_version/native_main-$binary_suffix"
     fi
-    manifest_loc="https://raw.githubusercontent.com/tridactyl/native_messenger/$native_version/tridactyl.json"
-    native_loc="https://github.com/tridactyl/native_messenger/releases/download/$native_version/native_main-$binary_suffix"
-
 
     mkdir -p "$manifest_home" "$XDG_DATA_HOME"
 

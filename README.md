@@ -19,7 +19,11 @@ It therefore greatly increases the amount of damage bugs in Tridactyl can do to 
 
 # Installation
 
-Two options: run `:nativeinstall` in Tridactyl and follow the instructions. Otherwise download and run `installers/install.sh`, or `installers/windows.ps1` for Windows, from this repository
+Three options:
+
+- Run `:nativeinstall` in Tridactyl and follow the instructions.
+- Download and run `installers/install.sh`, or `installers/windows.ps1` for Windows, from this repository.
+- Clone the repository and build it locally, then run `./installers/install.sh local`.
 
 # Building
 

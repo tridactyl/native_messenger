@@ -142,7 +142,7 @@ proc handleMessage(msg: MessageRecv): MessageResp =
                     poStdErrToStdOut})
 
             var content = ""
-            for line in process.lines:
+            for line in process.outputStream.lines:
                 content.add(line)
                 content.add('\n')
             result.content = some content

@@ -5,6 +5,8 @@ import streams
 import os
 import strutils
 import posix
+import re
+import base64
 
 # Third party stuff
 import tempfile
@@ -232,7 +234,11 @@ proc handleMessage(msg: MessageRecv): MessageResp =
             try:
                 var f: File
                 discard open(f, expandTilde(msg.file.get()), fmWrite)
-                write(f, msg.content.get())
+                var msgContent = msg.content.get()
+                let expr = re"^data:((.*?)(;charset=.*?)?)(;base64)?,"
+                if match(msgContent, expr):
+                    msgContent = decode(replace(msgContent, expr, ""))
+                write(f, msgContent)
                 result.code = some(0)
                 close(f)
             except IOError:

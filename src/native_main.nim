@@ -105,6 +105,31 @@ proc findUserConfigFile(): string =
         if fileExists(path):
             return path
 
+proc expandVars(path: string): string =
+    if "$" notin path:
+        return path
+
+    var
+      name, value, tail: string
+      (first, last) = (0, 0)
+    result = path
+    while true:
+        (first, last) = findBounds(result, re"\$(\w+|\{[^}]*\})", first)
+        if first < 0 or last < first:
+            break
+        name = result[first + 1 .. last]
+        if name.startsWith('{') and name.endsWith('}'):
+            name = name[1 .. ^2]
+        if existsEnv(name):
+            value = getEnv(name)
+        else:
+            first = last
+            continue
+        tail = result[last + 1 .. ^1]
+        result = result[0 .. first - 1] & value
+        first = len(result)
+        result = result & tail
+
 proc handleMessage(msg: MessageRecv): MessageResp =
     let cmd = msg.cmd.get()
     result.cmd = cmd
@@ -174,7 +199,7 @@ proc handleMessage(msg: MessageRecv): MessageResp =
 
         of "read":
             var f: File
-            if open(f, expandTilde(msg.file.get())):
+            if open(f, expandTilde(expandVars(msg.file.get()))):
                 result.content = some(readAll(f))
                 result.code = some(0)
                 close(f)
@@ -184,15 +209,15 @@ proc handleMessage(msg: MessageRecv): MessageResp =
 
         of "mkdir":
             try:
-                createDir(expandTilde(msg.dir.get()))
+                createDir(expandTilde(expandVars((msg.dir.get()))))
                 result.content = some("")
                 result.code = some(0)
             except OSError:
                 result.code = some(2)
 
         of "move":
-            let src = expandTilde(msg.`from`.get())
-            let dst = expandTilde(msg.to.get())
+            let src = expandTilde(expandVars(msg.`from`.get()))
+            let dst = expandTilde(expandVars(msg.to.get()))
             let canMove = msg.overwrite.get(false) or not(fileExists(dst) or
                     fileExists(joinPath(dst, extractFilename(src))))
 
@@ -236,7 +261,7 @@ proc handleMessage(msg: MessageRecv): MessageResp =
         of "write":
             try:
                 var f: File
-                discard open(f, expandTilde(msg.file.get()), fmWrite)
+                discard open(f, expandTilde(expandVars(msg.file.get())), fmWrite)
                 var msgContent = msg.content.get()
                 let expr = re"^data:((.*?)(;charset=.*?)?)(;base64)?,"
                 if match(msgContent, expr):
@@ -248,7 +273,7 @@ proc handleMessage(msg: MessageRecv): MessageResp =
                 result.code = some(2)
 
         of "writerc":
-            let path = expandTilde(msg.file.get())
+            let path = expandTilde(expandVars(msg.file.get()))
             if not fileExists(path) or msg.force.get(false):
                 try:
                     var f: File

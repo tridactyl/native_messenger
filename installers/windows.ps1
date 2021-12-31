@@ -36,7 +36,7 @@ function Install-NativeMessenger {
     [Net.ServicePointManager]::SecurityProtocol = `
         [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
 
-    $MessengerVersion = (Invoke-WebRequest `
+    $MessengerVersion = (Invoke-WebRequest -UseBasicParsing `
             "https://raw.githubusercontent.com/tridactyl/tridactyl/$Tag/native/current_native_version").`
         Content.Trim()
     Write-Output "Installing native messenger version $MessengerVersion in $InstallDirectory"
@@ -46,7 +46,7 @@ function Install-NativeMessenger {
     Push-Location $InstallDirectory
 
     Write-Output "Downloading native messenger"
-    $MessengerRequest = Invoke-WebRequest `
+    $MessengerRequest = Invoke-WebRequest -UseBasicParsing `
         "https://github.com/tridactyl/native_messenger/releases/download/$MessengerVersion/native_main-Windows"
     if (-not (Test-Path "native_main.exe")) {
         New-Item -ItemType File "native_main.exe"
@@ -69,7 +69,7 @@ the process and try again.
     }
 
     Write-Output "Downloading manifest"
-    (Invoke-WebRequest `
+    (Invoke-WebRequest -UseBasicParsing `
             "https://raw.githubusercontent.com/tridactyl/native_messenger/$MessengerVersion/tridactyl.json").`
         Content.Replace("REPLACE_ME_WITH_SED", "native_main.exe") |
         Set-Content -Path "tridactyl.json"

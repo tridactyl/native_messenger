@@ -142,6 +142,9 @@ proc handleMessage(msg: MessageRecv): MessageResp =
             result.command = some command
             let process = startProcess(command, options = {poEvalCommand,
                     poStdErrToStdOut})
+            if msg.content.isSome:
+                process.inputStream.write(msg.content.get())
+                process.inputStream.close()
 
             var content = ""
             for line in process.outputStream.lines:

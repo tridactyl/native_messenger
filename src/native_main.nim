@@ -106,29 +106,30 @@ proc findUserConfigFile(): string =
             return path
 
 proc expandVars(path: string): string =
-    if "$" notin path:
-        return path
-
-    var
-      name, value, tail: string
-      (first, last) = (0, 0)
     result = path
-    while true:
-        (first, last) = findBounds(result, re"\$(\w+|\{[^}]*\})", first)
-        if first < 0 or last < first:
-            break
-        name = result[first + 1 .. last]
-        if name.startsWith('{') and name.endsWith('}'):
-            name = name[1 .. ^2]
-        if existsEnv(name):
-            value = getEnv(name)
-        else:
-            first = last
-            continue
-        tail = result[last + 1 .. ^1]
-        result = result[0 .. first - 1] & value
-        first = len(result)
-        result = result & tail
+    when defined(posix):
+        if "$" notin result:
+            return
+
+        var
+            name, value, tail: string
+            (first, last) = (0, 0)
+        while true:
+            (first, last) = findBounds(result, re"\$(\w+|\{[^}]*\})", first)
+            if first < 0 or last < first:
+                break
+            name = result[first + 1 .. last]
+            if name.startsWith('{') and name.endsWith('}'):
+                name = name[1 .. ^2]
+            if existsEnv(name):
+                value = getEnv(name)
+            else:
+                first = last
+                continue
+            tail = result[last + 1 .. ^1]
+            result = result[0 .. first - 1] & value
+            first = len(result)
+            result = result & tail
 
 proc handleMessage(msg: MessageRecv): MessageResp =
     let cmd = msg.cmd.get()

@@ -10,3 +10,4 @@ bin           = @["native_main"]
 
 requires "nim >= 1.2.0"
 requires "tempfile >= 0.1.0"
+requires "regex >= 0.20.2"

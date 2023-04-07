@@ -5,7 +5,7 @@ import streams
 import os
 import strutils
 import posix
-import re
+import regex
 import base64
 
 # Third party stuff
@@ -115,7 +115,10 @@ proc expandVars(path: string): string =
             name, value, tail: string
             (first, last) = (0, 0)
         while true:
-            (first, last) = findBounds(result, re"\$(\w+|\{[^}]*\})", first)
+            var bounds_slices = findAllBounds(result, re"\$(\w+|\{[^}]*\})", first)
+            if bounds_slices.len == 0:
+                break
+            (first, last) = (bounds_slices[0].a, bounds_slices[0].b)
             if first < 0 or last < first:
                 break
             name = result[first + 1 .. last]

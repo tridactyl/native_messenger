@@ -79,6 +79,13 @@ jobs:
         shell: bash
         if: runner.os == 'Windows'
 
+      - run: |
+          mv native_main native_main-x86
+          nimble build --verbose -d:danger -d:release --opt:speed -Y '--passC:"-target arm64-apple-macos11"' '--passL:"-target arm64-apple-macos11"'
+          mv native_main native_main-arm64
+          lipo -create -output native_main native_main-x86 native_main-arm64
+        if: runner.os == 'macOS'
+
       - name: Upload Release Asset
         id: upload-release-asset 
         uses: actions/upload-release-asset@v1

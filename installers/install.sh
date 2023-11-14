@@ -17,8 +17,7 @@ sedEscape() {
 run() {
     set -e
 
-    XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}/tridactyl"
-    XDG_DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}/tridactyl"
+    HOME="${HOME:-$(echo ~)}"
 
     # Decide where to put the manifest based on OS
     # Get OSTYPE from bash if it's installed. If it's not, then this will
@@ -58,13 +57,13 @@ run() {
         native_loc="https://github.com/tridactyl/native_messenger/releases/download/$native_version/native_main-$binary_suffix"
     fi
 
-    mkdir -p "$manifest_home" "$XDG_DATA_HOME"
+    mkdir -p "$manifest_home"
 
     manifest_file="$manifest_home/tridactyl.json"
-    native_file="$XDG_DATA_HOME/native_main"
+    native_file="$manifest_home/tridactyl_native_main"
 
     echo "Installing manifest here: $manifest_home"
-    echo "Installing script here: XDG_DATA_HOME: $XDG_DATA_HOME"
+    echo "Installing script here: $native_file"
 
 
     curl -sSL --create-dirs -o "$manifest_file" "$manifest_loc"

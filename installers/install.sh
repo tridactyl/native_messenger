@@ -57,14 +57,41 @@ run() {
         native_loc="https://github.com/tridactyl/native_messenger/releases/download/$native_version/native_main-$binary_suffix"
     fi
 
-    mkdir -p "$manifest_home"
+    install_to "$manifest_home" "$manifest_home"
 
-    manifest_file="$manifest_home/tridactyl.json"
-    native_file="$manifest_home/tridactyl_native_main"
+    for flatpak_dir in ~/.var/app/*/.mozilla; do
+        [ -d "$flatpak_dir" ] || continue
+        echo
+        echo "Detected flatpak installation in $flatpak_dir"
+        install_to "$flatpak_dir/native-messaging-hosts/" "$HOME/.mozilla/native-messaging-hosts/"
+    done
 
-    echo "Installing manifest here: $manifest_home"
+    echo
+    echo "Successfully installed Tridactyl native messenger!"
+    echo "Run ':native' in Firefox to check."
+}
+
+# install_to takes two arguments:
+#  1. The path to the manifest home as seen by the install script.
+#  2. The path to the manifest home as seen by Firefox.
+#
+# For regular Firefox installations, these are the same.  They are different in
+# the case of sandboxed installations (like Flatpak).
+install_to() {
+    manifest_home_on_host="$1"
+    manifest_home_in_sandbox="$2"
+
+    mkdir -p "$manifest_home_on_host"
+
+    manifest_file="$manifest_home_on_host/tridactyl.json"
+    # For Flatpak installations, we must install the native binary inside
+    # `~/.mozilla/native-messaging-hosts` as well, because everything outside
+    # of `~/.mozilla` is wiped when restarted.
+    native_binary_name="tridactyl_native_main"
+    native_file="$manifest_home_on_host/$native_binary_name"
+
+    echo "Installing manifest here: $manifest_home_on_host"
     echo "Installing script here: $native_file"
-
 
     curl -sSL --create-dirs -o "$manifest_file" "$manifest_loc"
     curl -sSL --create-dirs -o "$native_file" "$native_loc"
@@ -79,7 +106,7 @@ run() {
         exit 1
     fi
 
-    sed -i.bak "s/REPLACE_ME_WITH_SED/$(sedEscape "$native_file")/" "$manifest_file"
+    sed -i.bak "s/REPLACE_ME_WITH_SED/$(sedEscape "$manifest_home_in_sandbox/$native_binary_name")/" "$manifest_file"
     chmod +x "$native_file"
 
     ## Apparently `curl`'d things don't get quarantined, so maybe we don't need this after all?
@@ -90,10 +117,6 @@ run() {
     #         sudo xattr -d com.apple.quarantine "$native_file"
     #         ;;
     # esac
-
-    echo
-    echo "Successfully installed Tridactyl native messenger!"
-    echo "Run ':native' in Firefox to check."
 }
 
 # Run the run function in a subshell so that it can be exited early if an error

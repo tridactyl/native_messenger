@@ -84,22 +84,21 @@ proc getMessage(strm: Stream): MessageRecv =
 
 
 proc findUserConfigFile(): string =
-    let candidateFiles =
+    # The standard config dir is the same as stdlib, except on Windows where we also allow `XDG_CONFIG_HOME` when set.
+    let standardConfigDir =
         when not defined(windows):
-            [
-                getConfigDir() / "tridactyl" / "tridactylrc",
-                getHomeDir() / ".config" / "tridactyl" / "tridactylrc",
-                getHomeDir() / "_config" / "tridactyl" / "tridactylrc",
-                getHomeDir() / ".tridactylrc",
-                getHomeDir() / "_tridactylrc",
-            ]
+            getConfigDir()
         else:
-            [
-                getHomeDir() / ".config" / "tridactyl" / "tridactylrc",
-                getHomeDir() / "_config" / "tridactyl" / "tridactylrc",
-                getHomeDir() / ".tridactylrc",
-                getHomeDir() / "_tridactylrc",
-            ]
+            getEnv("XDG_CONFIG_HOME", getConfigDir())
+
+    let candidateFiles =
+        [
+            standardConfigDir / "tridactyl" / "tridactylrc",
+            getHomeDir() / ".config" / "tridactyl" / "tridactylrc",
+            getHomeDir() / "_config" / "tridactyl" / "tridactylrc",
+            getHomeDir() / ".tridactylrc",
+            getHomeDir() / "_tridactylrc",
+        ]
 
     for path in candidateFiles:
         if fileExists(path):

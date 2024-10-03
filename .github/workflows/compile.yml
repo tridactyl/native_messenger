@@ -47,7 +47,7 @@ jobs:
         if: runner.os == 'Linux'
 
       - run: |
-          sudo apt-get install gcc-arm-linux-gnueabihf
+          sudo apt-get install gcc-arm-linux-gnueabihf gcc-aarch64-linux-gnu
           nimble build -d:release -d:danger --opt:speed -Y --cpu:arm64
           mv native_main native_main-armhf64
           file native_main-armhf64

@@ -72,6 +72,14 @@ jobs:
         name: armhf build
         if: runner.os == 'Linux'
 
+      - run: |
+          sudo apt-get install gcc-arm-linux-gnueabihf
+          nimble build -d:release -d:danger --opt:speed -Y --cpu:arm64
+          mv native_main native_main-armhf64
+          file native_main-armhf64
+        name: armhf64 build
+        if: runner.os == 'Linux'
+
       - run: nimble build -d:danger -d:release --opt:speed -Y --verbose
 
       - run: |
@@ -107,4 +115,16 @@ jobs:
           upload_url: ${{ steps.get_upload_url.outputs.data }}
           asset_name: native_main-armhf-${{ runner.os }}
           asset_path: native_main-armhf
+          asset_content_type: application/octet-stream
+
+      - name: Upload Release Asset (ARM64)
+        if: runner.os == 'Linux'
+        id: upload-release-asset-arm
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.get_upload_url.outputs.data }}
+          asset_name: native_main-armhf64-${{ runner.os }}
+          asset_path: native_main-armhf64
           asset_content_type: application/octet-stream

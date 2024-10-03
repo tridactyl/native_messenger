@@ -46,6 +46,14 @@ jobs:
         name: armhf build
         if: runner.os == 'Linux'
 
+      - run: |
+          sudo apt-get install gcc-arm-linux-gnueabihf
+          nimble build -d:release -d:danger --opt:speed -Y --cpu:arm64
+          mv native_main native_main-armhf64
+          file native_main-armhf64
+        name: armhf64 build
+        if: runner.os == 'Linux'
+
       - run: nimble build -d:debug -Y --verbose
 
       - run: |
@@ -74,3 +82,10 @@ jobs:
         with:
           name: native_main-armhf-${{ runner.os }}
           path: native_main-armhf
+
+      - name: Archive production artifacts
+        uses: actions/upload-artifact@v2
+        if: runner.os == 'Linux'
+        with:
+          name: native_main-armhf64-${{ runner.os }}
+          path: native_main-armhf64

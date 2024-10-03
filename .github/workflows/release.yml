@@ -75,9 +75,9 @@ jobs:
       - run: |
           sudo apt-get install gcc-arm-linux-gnueabihf gcc-aarch64-linux-gnu
           nimble build -d:release -d:danger --opt:speed -Y --cpu:arm64
-          mv native_main native_main-armhf64
-          file native_main-armhf64
-        name: armhf64 build
+          mv native_main native_main-arm64
+          file native_main-arm64
+        name: arm64 build
         if: runner.os == 'Linux'
 
       - run: nimble build -d:danger -d:release --opt:speed -Y --verbose
@@ -125,6 +125,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.get_upload_url.outputs.data }}
-          asset_name: native_main-armhf64-${{ runner.os }}
-          asset_path: native_main-armhf64
+          asset_name: native_main-arm64-${{ runner.os }}
+          asset_path: native_main-arm64
           asset_content_type: application/octet-stream

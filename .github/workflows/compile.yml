@@ -49,9 +49,9 @@ jobs:
       - run: |
           sudo apt-get install gcc-arm-linux-gnueabihf gcc-aarch64-linux-gnu
           nimble build -d:release -d:danger --opt:speed -Y --cpu:arm64
-          mv native_main native_main-armhf64
-          file native_main-armhf64
-        name: armhf64 build
+          mv native_main native_main-arm64
+          file native_main-arm64
+        name: arm64 build
         if: runner.os == 'Linux'
 
       - run: nimble build -d:debug -Y --verbose
@@ -87,5 +87,5 @@ jobs:
         uses: actions/upload-artifact@v4
         if: runner.os == 'Linux'
         with:
-          name: native_main-armhf64-${{ runner.os }}
-          path: native_main-armhf64
+          name: native_main-arm64-${{ runner.os }}
+          path: native_main-arm64

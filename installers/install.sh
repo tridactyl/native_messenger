@@ -26,8 +26,16 @@ run() {
 
     case "$OSTYPE" in
         linux-gnu|linux-musl|linux|freebsd*)
+            ARCHITECTURE="$(uname -m)"
             manifest_home="$HOME/.mozilla/native-messaging-hosts/"
-            binary_suffix="Linux"
+            case "$ARCHITECTURE" in
+                aarch64)
+                    binary_suffix="arm64-Linux"
+                    ;;
+                *)
+                    binary_suffix="Linux"
+                    ;;
+            esac
             ;;
         linux-gnueabihf)
             manifest_home="$HOME/.mozilla/native-messaging-hosts/"

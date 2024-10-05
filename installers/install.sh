@@ -15,13 +15,15 @@ sedEscape() {
 # native messanger.
 
 run() {
-    XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}/tridactyl"
-    XDG_DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}/tridactyl"
-
     # Decide where to put the manifest based on OS
     # Get OSTYPE from bash if it's installed. If it's not, then this will
     # default to the Linux location as OSTYPE will be empty
     OSTYPE="$(command -v bash >/dev/null && bash -c 'echo $OSTYPE')"
+    set -e # we don't really mind if OSTYPE fails (e.g. on Alpine Linux)
+
+    XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}/tridactyl"
+    XDG_DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}/tridactyl"
+
     case "$OSTYPE" in
         linux-gnu|linux-musl|linux|freebsd*)
             manifest_home="$HOME/.mozilla/native-messaging-hosts/"
@@ -42,8 +44,6 @@ run() {
             binary_suffix="Linux"
             ;;
     esac
-
-    set -e
 
     if [ "$1" = "local" ] ; then
         manifest_loc="file://"$(pwd)"/tridactyl.json"

@@ -15,8 +15,6 @@ sedEscape() {
 # native messanger.
 
 run() {
-    set -e
-
     XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}/tridactyl"
     XDG_DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}/tridactyl"
 
@@ -44,6 +42,8 @@ run() {
             binary_suffix="Linux"
             ;;
     esac
+
+    set -e
 
     if [ "$1" = "local" ] ; then
         manifest_loc="file://"$(pwd)"/tridactyl.json"

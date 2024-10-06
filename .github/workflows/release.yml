@@ -66,7 +66,7 @@ jobs:
 
       - run: |
           sudo apt-get install gcc-arm-linux-gnueabihf
-          nimble build -d:release -d:danger --opt:speed -Y --cpu:arm
+          nimble build -d:release -d:danger --opt:speed -Y --cpu:arm -l:static
           mv native_main native_main-armhf
           file native_main-armhf
         name: armhf build
@@ -74,13 +74,17 @@ jobs:
 
       - run: |
           sudo apt-get install gcc-arm-linux-gnueabihf gcc-aarch64-linux-gnu
-          nimble build -d:release -d:danger --opt:speed -Y --cpu:arm64
+          nimble build -d:release -d:danger --opt:speed -Y --cpu:arm64 -l:static
           mv native_main native_main-arm64
           file native_main-arm64
         name: arm64 build
         if: runner.os == 'Linux'
 
       - run: nimble build -d:danger -d:release --opt:speed -Y --verbose
+        if: runner.os != 'Linux'
+
+      - run: nimble build -d:danger -d:release --opt:speed -Y --verbose -l:static
+        if: runner.os == 'Linux'
 
       - run: |
           mv native_main.exe native_main

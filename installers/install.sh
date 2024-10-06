@@ -25,7 +25,17 @@ run() {
     XDG_DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}/tridactyl"
 
     case "$OSTYPE" in
-        linux-gnu|linux-musl|linux|freebsd*)
+        linux-gnueabihf)
+            manifest_home="$HOME/.mozilla/native-messaging-hosts/"
+            binary_suffix="armhf-Linux"
+            ;;
+        darwin*)
+            manifest_home="$HOME/Library/Application Support/Mozilla/NativeMessagingHosts/"
+            binary_suffix="macOS"
+            ;;
+        linux-gnu|linux-musl|linux|freebsd*|*)
+            # Fallback to default Linux location for unknown OSTYPE
+            # TODO: fall back to old Python messenger
             ARCHITECTURE="$(uname -m)"
             manifest_home="$HOME/.mozilla/native-messaging-hosts/"
             case "$ARCHITECTURE" in
@@ -36,20 +46,6 @@ run() {
                     binary_suffix="Linux"
                     ;;
             esac
-            ;;
-        linux-gnueabihf)
-            manifest_home="$HOME/.mozilla/native-messaging-hosts/"
-            binary_suffix="armhf-Linux"
-            ;;
-        darwin*)
-            manifest_home="$HOME/Library/Application Support/Mozilla/NativeMessagingHosts/"
-            binary_suffix="macOS"
-            ;;
-        *)
-            # Fallback to default Linux location for unknown OSTYPE
-            # TODO: fall back to old Python messenger
-            manifest_home="$HOME/.mozilla/native-messaging-hosts/"
-            binary_suffix="Linux"
             ;;
     esac
 

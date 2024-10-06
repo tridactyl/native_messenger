@@ -15,7 +15,7 @@ import tempfile
 when defined(windows):
     import windows_helpers
 
-const VERSION = "0.4.1"
+const VERSION = "0.5.0"
 
 type
     MessageRecv* = object

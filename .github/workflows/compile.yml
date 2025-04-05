@@ -22,7 +22,7 @@ jobs:
       - uses: actions/checkout@v2
       - name: Cache nimble
         id: cache-nimble
-        uses: actions/cache@v1
+        uses: actions/cache@v4
         with:
           path: ~/.nimble
           key: ${{ runner.os }}-nimble-${{ hashFiles('*.nimble') }}
@@ -40,7 +40,7 @@ jobs:
 
       - run: |
           sudo apt-get install gcc-arm-linux-gnueabihf
-          nimble build -d:debug -Y --cpu:arm
+          nimble build -d:debug -Y --cpu:arm --passL:-static
           mv native_main native_main-armhf
           file native_main-armhf
         name: armhf build
@@ -48,13 +48,17 @@ jobs:
 
       - run: |
           sudo apt-get install gcc-arm-linux-gnueabihf gcc-aarch64-linux-gnu
-          nimble build -d:release -d:danger --opt:speed -Y --cpu:arm64
+          nimble build -d:debug -Y --cpu:arm64 --passL:-static
           mv native_main native_main-arm64
           file native_main-arm64
         name: arm64 build
         if: runner.os == 'Linux'
 
       - run: nimble build -d:debug -Y --verbose
+        if: runner.os != 'Linux'
+
+      - run: nimble build -d:debug --verbose --passL:-static
+        if: runner.os == 'Linux'
 
       - run: |
           mv native_main.exe native_main

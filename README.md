@@ -32,10 +32,10 @@ Three options:
 
 # Testing
 
-DIY testing:
+Build the messenger and run the native messaging protocol tests:
 
-```
-./gen_native_message.py cmd..getconfigpath | ./native_main | cut -b4- | jq 'walk( if type == "object" then with_entries(select(.value != null)) else . end)'
+```sh
+./compile_and_test.sh
 ```
 
-Swap `native_main` for the old `native_main.py` messenger to check compat.
+The tests can also be run against an existing binary with `python3 test_native_main.py PATH_TO_NATIVE_MAIN`.

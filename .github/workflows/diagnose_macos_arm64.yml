@@ -1,0 +1,33 @@
+name: diagnose macOS arm64 releases
+
+on:
+  pull_request:
+    branches:
+      - '*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test_release:
+    name: test release ${{ matrix.version }}
+    strategy:
+      fail-fast: false
+      matrix:
+        version: ['0.4.1', '0.5.0']
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v7
+      - name: Download release
+        run: |
+          curl --fail --location --show-error \
+            --output native_main \
+            "https://github.com/tridactyl/native_messenger/releases/download/${{ matrix.version }}/native_main-macOS"
+      - name: Test release natively
+        run: |
+          test "$(uname -m)" = arm64
+          file native_main
+          lipo -archs native_main
+          chmod +x native_main
+          python3 test_native_main.py ./native_main

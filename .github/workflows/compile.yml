@@ -13,30 +13,25 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-13] # macos-13 is latest without ARM
+        os: [ubuntu-latest, windows-latest, macos-15-intel]
         # see https://docs.github.com/en/actions/using-github-hosted-runners/using-github-hosted-runners/about-github-hosted-runners#standard-github-hosted-runners-for-public-repositories
 
     runs-on: ${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Cache nimble
         id: cache-nimble
         uses: actions/cache@v4
         with:
           path: ~/.nimble
-          key: ${{ runner.os }}-nimble-${{ hashFiles('*.nimble') }}
+          key: ${{ runner.os }}-${{ runner.arch }}-nimble-v2-${{ hashFiles('*.nimble') }}
         if: runner.os != 'Windows'
 
-      - uses: jiro4989/setup-nim-action@v1
-
-        # Fix SSL error with choosenim
-      - run: |
-          curl -fO https://curl.se/ca/cacert.pem
-          install cacert.pem ~/.nimble/bin
-          ls ~/.nimble/bin
-        shell: bash
-        if: runner.os == 'Windows'
+      - uses: jiro4989/setup-nim-action@v2.3.0
+        with:
+          nim-version: '2.2.10'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - run: |
           sudo apt-get install gcc-arm-linux-gnueabihf

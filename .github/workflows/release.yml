@@ -4,65 +4,33 @@ on:
   push:
     tags: "*"
 
-jobs:
-  make_release:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
-          draft: false
-          prerelease: false
-      - name: set upload_url
-        id: set_upload_url
-        uses: noobly314/share-data@v1
-        with:
-          share-id: release_url
-          mode: set
-          key: url
-          value: ${{ steps.create_release.outputs.upload_url }}
+permissions:
+  contents: read
 
+jobs:
   compile:
-    needs: make_release
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-13] # macos-13 is latest without ARM
+        os: [ubuntu-latest, windows-latest, macos-15-intel]
         # see https://docs.github.com/en/actions/using-github-hosted-runners/using-github-hosted-runners/about-github-hosted-runners#standard-github-hosted-runners-for-public-repositories
 
     runs-on: ${{ matrix.os }}
 
     steps:
-      - name: get upload_url
-        id: get_upload_url
-        uses: noobly314/share-data@v1
-        with:
-          share-id: release_url
-          mode: get
-          key: url
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Cache nimble
         id: cache-nimble
-        uses: actions/cache@v1
+        uses: actions/cache@v4
         with:
           path: ~/.nimble
-          key: ${{ runner.os }}-nimble-${{ hashFiles('*.nimble') }}
+          key: ${{ runner.os }}-${{ runner.arch }}-nimble-v2-${{ hashFiles('*.nimble') }}
         if: runner.os != 'Windows'
 
-      - uses: jiro4989/setup-nim-action@v1
-
-        # Fix SSL error with choosenim
-      - run: |
-          curl -fO https://curl.se/ca/cacert.pem
-          install cacert.pem ~/.nimble/bin
-          ls ~/.nimble/bin
-        shell: bash
-        if: runner.os == 'Windows'
+      - uses: jiro4989/setup-nim-action@v2.3.0
+        with:
+          nim-version: '2.2.10'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - run: |
           sudo apt-get install gcc-arm-linux-gnueabihf
@@ -98,37 +66,38 @@ jobs:
           lipo -create -output native_main native_main-x86 native_main-arm64
         if: runner.os == 'macOS'
 
-      - name: Upload Release Asset
-        id: upload-release-asset 
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.get_upload_url.outputs.data }}
-          asset_name: native_main-${{ runner.os }}
-          asset_path: native_main
-          asset_content_type: application/octet-stream
+      - name: Stage release assets
+        shell: bash
+        run: |
+          mkdir release
+          cp native_main "release/native_main-${RUNNER_OS}"
+          if [ "$RUNNER_OS" = Linux ]; then
+            cp native_main-armhf "release/native_main-armhf-${RUNNER_OS}"
+            cp native_main-arm64 "release/native_main-arm64-${RUNNER_OS}"
+          fi
 
-      - name: Upload Release Asset (ARM)
-        if: runner.os == 'Linux'
-        id: upload-release-asset-arm
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
         with:
-          upload_url: ${{ steps.get_upload_url.outputs.data }}
-          asset_name: native_main-armhf-${{ runner.os }}
-          asset_path: native_main-armhf
-          asset_content_type: application/octet-stream
+          name: release-${{ runner.os }}
+          path: release/
+          if-no-files-found: error
 
-      - name: Upload Release Asset (ARM64)
-        if: runner.os == 'Linux'
-        id: upload-release-asset-arm64
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  release:
+    needs: compile
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download release artifacts
+        uses: actions/download-artifact@v4
         with:
-          upload_url: ${{ steps.get_upload_url.outputs.data }}
-          asset_name: native_main-arm64-${{ runner.os }}
-          asset_path: native_main-arm64
-          asset_content_type: application/octet-stream
+          pattern: release-*
+          path: release
+          merge-multiple: true
+
+      - name: Create release
+        run: gh release create "$GITHUB_REF_NAME" release/* --verify-tag --title "Release $GITHUB_REF_NAME" --notes-from-tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}

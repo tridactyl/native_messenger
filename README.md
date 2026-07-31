@@ -62,6 +62,6 @@ If more than one Firefox instance has opted in, the command reports their instan
 native_main --request 'reload' --instance 0123abcd
 ```
 
-The bridge binds an ephemeral port on `127.0.0.1`, i.e. not accessible on the local network. Each native instance publishes a random ID, port and high-entropy authentication token in its per-user cache directory. 
+The bridge binds an ephemeral port on `127.0.0.1`, i.e. not accessible on the local network. Each native instance publishes a random ID, port and high-entropy authentication token in its per-user cache directory.
 
 If you wish to reverse-engineer the protocol for doing stupid stuff like controlling Firefox across the network, you'l need to grab that token and forward the port.

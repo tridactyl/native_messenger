@@ -16,7 +16,9 @@ import tempfile
 when defined(windows):
     import windows_helpers
 
-const VERSION = "0.6.0"
+const
+    VERSION = "0.6.0"
+    MAX_NATIVE_FRAME = 64 * 1024 * 1024
 
 type
     MessageRecv* = object
@@ -67,6 +69,22 @@ func sanitiseFilename(fn: string): string =
             result.add c
 
     result = result.replace("..", ".")
+
+proc getMessage(stream: Stream): JsonNode =
+    try:
+        var size: uint32
+        stream.read(size)
+        if size == 0:
+            return
+        if size > MAX_NATIVE_FRAME.uint32:
+            raise newException(ValueError,
+              "native message exceeds maximum frame length")
+        let payload = stream.readStr(size.int)
+        if payload.len != size.int:
+            raise newException(IOError, "truncated native message payload")
+        result = parseJson(payload)
+    except IOError:
+        discard
 
 proc findUserConfigFile(): string =
     # The standard config dir is the same as stdlib, except on Windows where we also allow `XDG_CONFIG_HOME` when set.
@@ -356,10 +374,7 @@ proc handleMessage(msg: MessageRecv): MessageResp =
             write(stderr, "Unhandled message: " & $msg & "\n")
 
 func errorMessage(message: string): JsonNode =
-    var response: MessageResp
-    response.cmd = "error"
-    response.error = message
-    response.toJson
+    %*{"cmd": "error", "error": message}
 
 proc handshakeResponse(message: JsonNode): JsonNode =
     result = %*{
@@ -387,47 +402,18 @@ proc handshakeResponse(message: JsonNode): JsonNode =
         result["error"] = %started.error
 
 proc relayControlResponse(message: JsonNode) =
-    if not message.hasKey("id") or message["id"].kind != JString:
+    let id = message{"id"}.getStr
+    if id.len == 0:
         stderr.writeLine("Ignoring a control response without an ID")
         return
-    let id = message["id"].getStr
-    var response = %*{"protocol": CONTROL_PROTOCOL, "ok": false}
-    if not message.hasKey("protocol") or message["protocol"].kind != JInt or
-      message["protocol"].getBiggestInt != CONTROL_PROTOCOL or
-      not message.hasKey("ok") or message["ok"].kind != JBool:
-        response["error"] = %"invalid extension response"
-    elif message["ok"].getBool:
-        response["ok"] = %true
-        if message.hasKey("result"):
-            response["result"] = message["result"]
-    elif message.hasKey("error") and message["error"].kind == JString:
-        response["error"] = message["error"]
-    else:
-        response["error"] = %"extension request failed"
-    discard deliverControlResponse(id, $response)
+    discard deliverControlResponse(id, $message)
 
 proc runRequestMode(params: seq[string]): int =
-    var
-        command = ""
-        instance = ""
-        index = 1
-    while index < params.len:
-        if params[index] == "--instance":
-            if index + 1 >= params.len or instance.len > 0:
-                stderr.writeLine("Usage: native_main --request COMMAND [--instance ID]")
-                return 2
-            instance = params[index + 1]
-            index += 2
-        elif command.len == 0:
-            command = params[index]
-            inc index
-        else:
-            stderr.writeLine("Usage: native_main --request COMMAND [--instance ID]")
-            return 2
-    if command.len == 0:
+    if params.len notin [2, 4] or params[1].len == 0 or
+      (params.len == 4 and (params[2] != "--instance" or params[3].len == 0)):
         stderr.writeLine("Usage: native_main --request COMMAND [--instance ID]")
         return 2
-    runCli(command, instance)
+    runCli(params[1], if params.len == 4: params[3] else: "")
 
 proc printUsage() =
     stdout.writeLine("Usage: native_main --request COMMAND [--instance ID]")
@@ -456,43 +442,38 @@ initControlBridge()
 let strm = newFileStream(stdin)
 
 while true:
-    let frame = readNativeFrame(strm)
-    if frame.kind == nfkEof:
-        break
-    if frame.kind == nfkInvalid:
-        stderr.writeLine(frame.error)
-        break
-
     var message: JsonNode
     try:
-        message = parseJson(frame.payload)
+        message = getMessage(strm)
     except JsonParsingError:
         stderr.writeLine("Malformed native JSON message")
         if not writeNative($errorMessage("Malformed native message")):
             break
         continue
+    except ValueError as error:
+        stderr.writeLine(error.msg)
+        break
+    if message.isNil:
+        break
 
+    var response: JsonNode
     if message.kind != JObject:
-        if not writeNative($errorMessage("Malformed native message")):
-            break
+        response = errorMessage("Malformed native message")
     elif message.hasKey("cmd"):
         try:
-            if not writeNative($handleMessage(message.to(MessageRecv)).toJson):
-                break
+            response = handleMessage(message.to(MessageRecv)).toJson
         except Exception:
             stderr.writeLine("Malformed legacy native message")
-            if not writeNative($errorMessage("Malformed native message")):
-                break
-    elif message.hasKey("type") and message["type"].kind == JString and
-      message["type"].getStr == "control.handshake":
-        if not writeNative($handshakeResponse(message)):
-            break
-    elif message.hasKey("type") and message["type"].kind == JString and
-      message["type"].getStr == "control.response":
+            response = errorMessage("Malformed native message")
+    elif message{"type"}.getStr == "control.handshake":
+        response = handshakeResponse(message)
+    elif message{"type"}.getStr == "control.response":
         relayControlResponse(message)
+        continue
     else:
-        if not writeNative($errorMessage("Unhandled message")):
-            break
+        response = errorMessage("Unhandled message")
+    if not writeNative($response):
+        break
 
 stopControl(extensionDisconnected = true)
 strm.close()

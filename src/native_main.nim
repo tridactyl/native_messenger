@@ -7,6 +7,7 @@ import strutils
 import posix
 import regex
 import base64
+import control_bridge
 
 # Third party stuff
 import tempfile
@@ -15,7 +16,7 @@ import tempfile
 when defined(windows):
     import windows_helpers
 
-const VERSION = "0.5.0"
+const VERSION = "0.6.0"
 
 type
     MessageRecv* = object
@@ -29,7 +30,7 @@ type
         cmd*, version*, error*, sep*: string
         content*, command*: Option[string]
 
-        files: seq[string]
+        files, capabilities: seq[string]
 
         isDir: bool
         code: Option[int]
@@ -52,6 +53,9 @@ func toJson(m: MessageResp): JsonNode =
                 for file in value:
                     files.add file.newJString
                 result[name] = files
+        elif name == "capabilities":
+            if value.len > 0:
+                result[name] = %value
         else:
             {.error: "Unhandled MessageResp field: " & name.}
 
@@ -63,25 +67,6 @@ func sanitiseFilename(fn: string): string =
             result.add c
 
     result = result.replace("..", ".")
-
-proc getMessage(strm: Stream): MessageRecv =
-    try:
-        var length: int32
-        read(strm, length)
-        if length == 0:
-            close(strm)
-            quit(0)
-
-        let
-            message = readStr(strm, length)
-            rawJson = parseJson(message)
-
-        return rawJson.to(MessageRecv)
-
-    except IOError:
-        close(strm)
-        quit(0)
-
 
 proc findUserConfigFile(): string =
     # The standard config dir is the same as stdlib, except on Windows where we also allow `XDG_CONFIG_HOME` when set.
@@ -140,6 +125,7 @@ proc handleMessage(msg: MessageRecv): MessageResp =
     case cmd:
         of "version":
             result.version = VERSION
+            result.capabilities = @[CONTROL_CAPABILITY]
             result.code = some 0
 
         of "getconfig":
@@ -369,8 +355,86 @@ proc handleMessage(msg: MessageRecv): MessageResp =
             result.error = "Unhandled message"
             write(stderr, "Unhandled message: " & $msg & "\n")
 
+func errorMessage(message: string): JsonNode =
+    var response: MessageResp
+    response.cmd = "error"
+    response.error = message
+    response.toJson
+
+proc handshakeResponse(message: JsonNode): JsonNode =
+    result = %*{
+        "type": "control.handshake",
+        "protocol": CONTROL_PROTOCOL,
+        "enabled": false
+    }
+    if not message.hasKey("protocol") or message["protocol"].kind != JInt or
+      message["protocol"].getBiggestInt != CONTROL_PROTOCOL:
+        result["error"] = %"unsupported control protocol"
+        return
+    if not message.hasKey("enable") or message["enable"].kind != JBool:
+        result["error"] = %"handshake requires a boolean enable field"
+        return
+
+    if not message["enable"].getBool:
+        stopControl()
+        return
+
+    let started = startControl()
+    if started.ok:
+        result["enabled"] = %true
+        result["instance"] = %started.instance
+    else:
+        result["error"] = %started.error
+
+proc relayControlResponse(message: JsonNode) =
+    if not message.hasKey("id") or message["id"].kind != JString:
+        stderr.writeLine("Ignoring a control response without an ID")
+        return
+    let id = message["id"].getStr
+    var response = %*{"protocol": CONTROL_PROTOCOL, "ok": false}
+    if not message.hasKey("protocol") or message["protocol"].kind != JInt or
+      message["protocol"].getBiggestInt != CONTROL_PROTOCOL or
+      not message.hasKey("ok") or message["ok"].kind != JBool:
+        response["error"] = %"invalid extension response"
+    elif message["ok"].getBool:
+        response["ok"] = %true
+        if message.hasKey("result"):
+            response["result"] = message["result"]
+    elif message.hasKey("error") and message["error"].kind == JString:
+        response["error"] = message["error"]
+    else:
+        response["error"] = %"extension request failed"
+    discard deliverControlResponse(id, $response)
+
+proc runRequestMode(params: seq[string]): int =
+    var
+        command = ""
+        instance = ""
+        index = 1
+    while index < params.len:
+        if params[index] == "--instance":
+            if index + 1 >= params.len or instance.len > 0:
+                stderr.writeLine("Usage: native_main --request COMMAND [--instance ID]")
+                return 2
+            instance = params[index + 1]
+            index += 2
+        elif command.len == 0:
+            command = params[index]
+            inc index
+        else:
+            stderr.writeLine("Usage: native_main --request COMMAND [--instance ID]")
+            return 2
+    if command.len == 0:
+        stderr.writeLine("Usage: native_main --request COMMAND [--instance ID]")
+        return 2
+    runCli(command, instance)
+
+proc printUsage() =
+    stdout.writeLine("Usage: native_main --request COMMAND [--instance ID]")
+    stdout.writeLine("       native_main --version")
+
+let params = commandLineParams()
 when defined windows:
-    let params = commandLineParams()
     # Usage: native_main.exe restart <Firefox PID> <profile dir> <browser exe name>
     # This should only invoked by the native messenger itself to perform
     # :restart on Windows. See also windows_restart.getOrphanMessengerCommand.
@@ -379,12 +443,56 @@ when defined windows:
           profiledir = params[2], browserExePath = params[3])
         quit()
 
+if params.len > 0 and params[0] == "--request":
+    quit(runRequestMode(params))
+if params == @["--help"]:
+    printUsage()
+    quit(0)
+if params == @["--version"]:
+    stdout.writeLine(VERSION)
+    quit(0)
+
+initControlBridge()
 let strm = newFileStream(stdin)
 
 while true:
-    let
-        message = $handleMessage(getMessage(strm)).toJson
-        lengthPayload = cast[array[4, byte]](message.len.uint32)
-    discard writeBytes(stdout, lengthPayload, 0, lengthPayload.len)
-    write(stdout, message)
-    flushFile(stdout)
+    let frame = readNativeFrame(strm)
+    if frame.kind == nfkEof:
+        break
+    if frame.kind == nfkInvalid:
+        stderr.writeLine(frame.error)
+        break
+
+    var message: JsonNode
+    try:
+        message = parseJson(frame.payload)
+    except JsonParsingError:
+        stderr.writeLine("Malformed native JSON message")
+        if not writeNative($errorMessage("Malformed native message")):
+            break
+        continue
+
+    if message.kind != JObject:
+        if not writeNative($errorMessage("Malformed native message")):
+            break
+    elif message.hasKey("cmd"):
+        try:
+            if not writeNative($handleMessage(message.to(MessageRecv)).toJson):
+                break
+        except Exception:
+            stderr.writeLine("Malformed legacy native message")
+            if not writeNative($errorMessage("Malformed native message")):
+                break
+    elif message.hasKey("type") and message["type"].kind == JString and
+      message["type"].getStr == "control.handshake":
+        if not writeNative($handshakeResponse(message)):
+            break
+    elif message.hasKey("type") and message["type"].kind == JString and
+      message["type"].getStr == "control.response":
+        relayControlResponse(message)
+    else:
+        if not writeNative($errorMessage("Unhandled message")):
+            break
+
+stopControl(extensionDisconnected = true)
+strm.close()

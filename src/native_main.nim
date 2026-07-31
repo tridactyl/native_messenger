@@ -7,6 +7,7 @@ import strutils
 import posix
 import regex
 import base64
+import control_bridge
 
 # Third party stuff
 import tempfile
@@ -15,7 +16,9 @@ import tempfile
 when defined(windows):
     import windows_helpers
 
-const VERSION = "0.5.0"
+const
+    VERSION = "0.6.0"
+    MAX_NATIVE_FRAME = 64 * 1024 * 1024
 
 type
     MessageRecv* = object
@@ -29,7 +32,7 @@ type
         cmd*, version*, error*, sep*: string
         content*, command*: Option[string]
 
-        files: seq[string]
+        files, capabilities: seq[string]
 
         isDir: bool
         code: Option[int]
@@ -52,6 +55,9 @@ func toJson(m: MessageResp): JsonNode =
                 for file in value:
                     files.add file.newJString
                 result[name] = files
+        elif name == "capabilities":
+            if value.len > 0:
+                result[name] = %value
         else:
             {.error: "Unhandled MessageResp field: " & name.}
 
@@ -64,24 +70,21 @@ func sanitiseFilename(fn: string): string =
 
     result = result.replace("..", ".")
 
-proc getMessage(strm: Stream): MessageRecv =
+proc getMessage(stream: Stream): JsonNode =
     try:
-        var length: int32
-        read(strm, length)
-        if length == 0:
-            close(strm)
-            quit(0)
-
-        let
-            message = readStr(strm, length)
-            rawJson = parseJson(message)
-
-        return rawJson.to(MessageRecv)
-
+        var size: uint32
+        stream.read(size)
+        if size == 0:
+            return
+        if size > MAX_NATIVE_FRAME.uint32:
+            raise newException(ValueError,
+              "native message exceeds maximum frame length")
+        let payload = stream.readStr(size.int)
+        if payload.len != size.int:
+            raise newException(IOError, "truncated native message payload")
+        result = parseJson(payload)
     except IOError:
-        close(strm)
-        quit(0)
-
+        discard
 
 proc findUserConfigFile(): string =
     # The standard config dir is the same as stdlib, except on Windows where we also allow `XDG_CONFIG_HOME` when set.
@@ -140,6 +143,7 @@ proc handleMessage(msg: MessageRecv): MessageResp =
     case cmd:
         of "version":
             result.version = VERSION
+            result.capabilities = @[CONTROL_CAPABILITY]
             result.code = some 0
 
         of "getconfig":
@@ -369,8 +373,54 @@ proc handleMessage(msg: MessageRecv): MessageResp =
             result.error = "Unhandled message"
             write(stderr, "Unhandled message: " & $msg & "\n")
 
+func errorMessage(message: string): JsonNode =
+    %*{"cmd": "error", "error": message}
+
+proc handshakeResponse(message: JsonNode): JsonNode =
+    result = %*{
+        "type": "control.handshake",
+        "protocol": CONTROL_PROTOCOL,
+        "enabled": false
+    }
+    if not message.hasKey("protocol") or message["protocol"].kind != JInt or
+      message["protocol"].getBiggestInt != CONTROL_PROTOCOL:
+        result["error"] = %"unsupported control protocol"
+        return
+    if not message.hasKey("enable") or message["enable"].kind != JBool:
+        result["error"] = %"handshake requires a boolean enable field"
+        return
+
+    if not message["enable"].getBool:
+        stopControl()
+        return
+
+    let started = startControl()
+    if started.ok:
+        result["enabled"] = %true
+        result["instance"] = %started.instance
+    else:
+        result["error"] = %started.error
+
+proc relayControlResponse(message: JsonNode) =
+    let id = message{"id"}.getStr
+    if id.len == 0:
+        stderr.writeLine("Ignoring a control response without an ID")
+        return
+    discard deliverControlResponse(id, $message)
+
+proc runRequestMode(params: seq[string]): int =
+    if params.len notin [2, 4] or params[1].len == 0 or
+      (params.len == 4 and (params[2] != "--instance" or params[3].len == 0)):
+        stderr.writeLine("Usage: native_main --request COMMAND [--instance ID]")
+        return 2
+    runCli(params[1], if params.len == 4: params[3] else: "")
+
+proc printUsage() =
+    stdout.writeLine("Usage: native_main --request COMMAND [--instance ID]")
+    stdout.writeLine("       native_main --version")
+
+let params = commandLineParams()
 when defined windows:
-    let params = commandLineParams()
     # Usage: native_main.exe restart <Firefox PID> <profile dir> <browser exe name>
     # This should only invoked by the native messenger itself to perform
     # :restart on Windows. See also windows_restart.getOrphanMessengerCommand.
@@ -379,12 +429,51 @@ when defined windows:
           profiledir = params[2], browserExePath = params[3])
         quit()
 
+if params.len > 0 and params[0] == "--request":
+    quit(runRequestMode(params))
+if params == @["--help"]:
+    printUsage()
+    quit(0)
+if params == @["--version"]:
+    stdout.writeLine(VERSION)
+    quit(0)
+
+initControlBridge()
 let strm = newFileStream(stdin)
 
 while true:
-    let
-        message = $handleMessage(getMessage(strm)).toJson
-        lengthPayload = cast[array[4, byte]](message.len.uint32)
-    discard writeBytes(stdout, lengthPayload, 0, lengthPayload.len)
-    write(stdout, message)
-    flushFile(stdout)
+    var message: JsonNode
+    try:
+        message = getMessage(strm)
+    except JsonParsingError:
+        stderr.writeLine("Malformed native JSON message")
+        if not writeNative($errorMessage("Malformed native message")):
+            break
+        continue
+    except ValueError as error:
+        stderr.writeLine(error.msg)
+        break
+    if message.isNil:
+        break
+
+    var response: JsonNode
+    if message.kind != JObject:
+        response = errorMessage("Malformed native message")
+    elif message.hasKey("cmd"):
+        try:
+            response = handleMessage(message.to(MessageRecv)).toJson
+        except Exception:
+            stderr.writeLine("Malformed legacy native message")
+            response = errorMessage("Malformed native message")
+    elif message{"type"}.getStr == "control.handshake":
+        response = handshakeResponse(message)
+    elif message{"type"}.getStr == "control.response":
+        relayControlResponse(message)
+        continue
+    else:
+        response = errorMessage("Unhandled message")
+    if not writeNative($response):
+        break
+
+stopControl(extensionDisconnected = true)
+strm.close()

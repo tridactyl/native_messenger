@@ -55,6 +55,8 @@ jobs:
       - run: nimble build -d:debug --verbose --passL:-static
         if: runner.os == 'Linux'
 
+      - run: nimble test -Y
+
       - run: |
           mv native_main.exe native_main
         shell: bash
@@ -67,8 +69,6 @@ jobs:
           lipo -create -output native_main native_main-x86 native_main-arm64
         if: runner.os == 'macOS'
 
-      # - run: nimble test -Y
-     
       - name: Archive production artifacts
         uses: actions/upload-artifact@v4
         with:
